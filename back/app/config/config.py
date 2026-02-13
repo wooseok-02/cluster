@@ -1,6 +1,11 @@
 from datetime import datetime, timedelta
-from jose import jwt
+from jose import jwt, JWTError
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from sqlalchemy.orm import Session
+from fastapi import Depends
+from fastapi.security import OAuth2PasswordBearer
+from config.database import get_db
+from auth.model import User
 
 # 1. 설정값 (실제로는 환경변수로 관리하는 게 좋아요)
 SECRET_KEY = "wooseok_manager_secret_key" 
@@ -26,4 +31,23 @@ def create_access_token(data: dict):
     
     return encoded_jwt
 
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+
+def get_current_user(db : Session = Depends(get_db), token = Depends(oauth2_scheme)):
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email: str = payload.get("sub")
+        if email is None:
+            raise Exception("Invalid token")
+    except Exception as e:
+        raise Exception("Could not validate credentials") from e
+    except JWTError as e:
+        raise Exception("Could not validate credentials") from e
+    user = db.query(User).filter(User.email == email).first()
+    if user is None:
+        raise Exception("User not found")
+    return user
+
+    
+    
 
