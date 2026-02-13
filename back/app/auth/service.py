@@ -3,9 +3,16 @@ from sqlalchemy.orm import Session
 from auth.schema import UserCreate, UserLogin, UserLoginResponse
 from auth.model import User
 from config.config import create_access_token
+from fastapi import APIRouter, Depends, HTTPException, status
 
 
 def register_user(db : Session, user_data : UserCreate):
+    existing_user = db.query(User).filter(User.email == user_data.email).first()
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email already registered"
+        )
     new_user = User(
         email=user_data.email,
         password=user_data.password,
@@ -17,15 +24,14 @@ def register_user(db : Session, user_data : UserCreate):
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
-    return {
-        new_user : new_user, 
-        token : token
-        }
+    return new_user, token
 
 def login_user(db : Session, user_data : UserLogin):
     user = db.query(User).filter(User.email == user_data.email, User.password == user_data.password).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email or password"
+        )
     token = create_access_token(data={"sub": user.email})
-    return {
-        user : user, 
-        token :token
-    }
+    return user, token

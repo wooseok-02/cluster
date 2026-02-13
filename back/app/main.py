@@ -1,15 +1,17 @@
 from fastapi import FastAPI
 from auth.api import router as auth_router  # 1. 라우터 가져오기
+from people.api import router as people_router  # 2. 라우터 가져오기
 from config.database import engine, Base
 import uvicorn
 
 Base.metadata.create_all(bind=engine)
 
-def client():
+def create_app():
     app = FastAPI()
     app.include_router(auth_router)
+    app.include_router(people_router)
     return app
-app = client()
+app = create_app()
 
 if __name__ == "__main__":
     print("Starting FastAPI application...")
