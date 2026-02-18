@@ -20,4 +20,6 @@ def create_people(db: Session, people_data: People, current_user : get_current_u
     db.refresh(new_people)
     return new_people
 
-def 
+def get_people():
+    #DB에서 사람들 정보 가져오기
+    #리턴할 스키마대로 반환하기

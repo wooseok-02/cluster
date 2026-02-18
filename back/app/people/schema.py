@@ -14,6 +14,7 @@ class PersonData(BaseModel) :
     address : str
     embedding : str
     user_id : int
+    
 
 class PersonRead(BaseModel):
     status: int
