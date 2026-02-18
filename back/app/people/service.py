@@ -19,3 +19,5 @@ def create_people(db: Session, people_data: People, current_user : get_current_u
     db.commit()
     db.refresh(new_people)
     return new_people
+
+def 
