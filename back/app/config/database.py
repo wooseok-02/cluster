@@ -1,14 +1,11 @@
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-
-# 1) DB 연결 URL — SQLite는 파일 경로로 지정
-#    형식: "sqlite:///./파일명.db"
-SQLALCHEMY_DATABASE_URL = "sqlite:///./app.db"
+from config.config import settings
 
 # 2) 엔진 생성
 engine = create_engine(
-    SQLALCHEMY_DATABASE_URL,
+    settings.DATABASE_URL,
     connect_args={"check_same_thread": False}
 )
 
