@@ -4,6 +4,7 @@ from auth.schema import UserCreate, UserRead, UserLogin, UserLoginResponse
 from auth.service import register_user, login_user
 from config.database import get_db
 from auth.model import User
+from fastapi.security import OAuth2PasswordRequestForm
 
 router = APIRouter(
     prefix="/auth",
@@ -25,8 +26,8 @@ def register(user_data: UserCreate, db: Session = Depends(get_db)):
     }
 
 @router.post("/login", response_model=UserLoginResponse)
-def login(user_data : UserLogin, db: Session = Depends(get_db)):
-    user,token = login_user(db, user_data)
+def login(user_data : UserLogin, db: Session = Depends(get_db), form_data: OAuth2PasswordRequestForm = Depends()):
+    user,token = login_user(db, user_data, form_data)
     return {
         "status" : 200,
         "message": "Login successful",

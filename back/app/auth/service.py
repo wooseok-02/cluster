@@ -4,6 +4,7 @@ from auth.schema import UserCreate, UserLogin, UserLoginResponse
 from auth.model import User
 from config.config import create_access_token
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordRequestForm
 
 
 def register_user(db : Session, user_data : UserCreate):
@@ -26,7 +27,7 @@ def register_user(db : Session, user_data : UserCreate):
     db.refresh(new_user)
     return new_user, token
 
-def login_user(db : Session, user_data : UserLogin):
+def login_user(db : Session, user_data : UserLogin, form_data: OAuth2PasswordRequestForm):
     user = db.query(User).filter(User.email == user_data.email, User.password == user_data.password).first()
     if not user:
         raise HTTPException(
