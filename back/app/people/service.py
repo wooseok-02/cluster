@@ -3,8 +3,9 @@ from fastapi import HTTPException, status
 from people.model import People
 from auth.model import User
 from auth.token import get_current_user
+from people.schema import PersonCreate
 
-def create_people(db: Session, people_data: People, current_user : get_current_user):
+def create_people(db: Session, people_data: PersonCreate, current_user : get_current_user):
     # 현재 로그인한 사용자의 ID를 가져옵니다.
     new_people = People(
         name=people_data.name,
@@ -19,9 +20,10 @@ def create_people(db: Session, people_data: People, current_user : get_current_u
     db.refresh(new_people)
     return new_people
 
-def get_people(db: Session, current_user : get_current_user):
+#한명의 친구의 정보 조회
+def get_people(db: Session, current_user : User):
     user_id = current_user.id
-    people_info = db.query(People).filter(User.id == user_id).first()
+    people_info = db.query(People).filter(People.user_id == user_id).first()
     if not people_info:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

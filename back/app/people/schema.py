@@ -1,19 +1,21 @@
 from pydantic import BaseModel, EmailStr
-
+from typing import Optional
 
 class PersonCreate(BaseModel):
     name: str
     age: int
     relation: str
     address: str
-    embedding: bytes  # Assuming embedding is stored as binary data (blob)
+    embedding: Optional[bytes] = None  # Assuming embedding is stored as binary data (blob)
 
 class PersonData(BaseModel) :
     name : str
     age : int
     relation : str
     address : str
-    embedding : str
+    embedding : Optional[bytes] = None
+    count : int
+    status : str
 
 
 class PersonRead(BaseModel):
