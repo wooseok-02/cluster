@@ -2,7 +2,7 @@
 from sqlalchemy.orm import Session
 from auth.schema import UserCreate, UserLogin, UserLoginResponse
 from auth.model import User
-from config.config import create_access_token
+from config.security import create_access_token
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 

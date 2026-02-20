@@ -1,5 +1,6 @@
 from pydantic import BaseModel, EmailStr
 
+
 class PersonCreate(BaseModel):
     name: str
     age: int
@@ -13,8 +14,7 @@ class PersonData(BaseModel) :
     relation : str
     address : str
     embedding : str
-    user_id : int
-    
+
 
 class PersonRead(BaseModel):
     status: int
