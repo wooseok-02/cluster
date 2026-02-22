@@ -9,6 +9,7 @@ class PersonCreate(BaseModel):
     embedding: Optional[bytes] = None  # Assuming embedding is stored as binary data (blob)
 
 class PersonData(BaseModel) :
+    id : int
     name : str
     age : int
     relation : str
@@ -16,6 +17,7 @@ class PersonData(BaseModel) :
     embedding : Optional[bytes] = None
     count : int
     status : str
+    
 
 
 class PersonRead(BaseModel):

@@ -1,13 +1,13 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from datetime import date, time, datetime
-from typing import List
+from typing import List, Optional
 
 
 # ── 요청 스키마 ──────────────────────────────────────────────
 class ScheduleCreate(BaseModel):
     title: str
-    place_id: int
-    people_ids: List[int]
+    place_id: Optional[int] = None          # 장소 미지정 허용 (혼자 가는 경우 등)
+    people_ids: List[int] = Field(default_factory=list)  # 인원 미지정 허용
     date: date          # 날짜 (status 결정 + start/end_time 조합에 사용)
     start_time: time    # 시작 시각
     end_time: time      # 종료 시각
@@ -37,7 +37,7 @@ class ScheduleData(BaseModel):
     end_time: datetime
     memo: str
     status: str
-    place: PlaceInfo
+    place: Optional[PlaceInfo] = None   # 장소 미지정 시 null
     people: List[PersonInfo]
 
     model_config = ConfigDict(from_attributes=True)

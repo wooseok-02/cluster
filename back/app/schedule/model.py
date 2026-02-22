@@ -3,8 +3,8 @@ from sqlalchemy.orm import relationship
 from config.database import Base
 
 # Schedule ↔ People 다대다 연결 테이블
-log_people = Table(
-    "LOG_PEOPLE",
+schedule_people = Table(
+    "SCHEDULE_PEOPLE",
     Base.metadata,
     Column("schedule_id", Integer, ForeignKey("SCHEDULE.id"), primary_key=True),
     Column("people_id", Integer, ForeignKey("PEOPLE.id"), primary_key=True)
@@ -25,4 +25,4 @@ class Schedule(Base):
 
     # 조회 시 place, people 자동 로드
     place = relationship("Place")
-    people = relationship("People", secondary=log_people)
+    people = relationship("People", secondary=schedule_people)

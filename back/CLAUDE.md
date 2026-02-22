@@ -183,6 +183,7 @@ back/app/
 | 장소 상세 | GET | /place/{place_id} | 방문 기록 리스트 포함 |
 | 기록 상세 | GET | /pp/look/{log_id} | 사진, 함께한 사람 포함 |
 
+
 ## 현재 작업 중
 
 - **스프린트 1-1**: Place CRUD (생성, 조회) 구현

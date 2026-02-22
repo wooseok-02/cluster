@@ -17,22 +17,40 @@ def create_schedule(db: Session, schedule_data: ScheduleCreate, current_user: Us
     start_datetime = datetime.combine(schedule_data.date, schedule_data.start_time)
     end_datetime = datetime.combine(schedule_data.date, schedule_data.end_time)
 
-    # place_id 유효성 검증 (현재 유저 소유 확인)
-    place = db.query(Place).filter(
-        Place.id == schedule_data.place_id,
-        Place.user_id == current_user.id
-    ).first()
-    if not place:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Place not found"
-        )
+    # place_id 유효성 검증 (입력된 경우에만)
+    if schedule_data.place_id is not None:
+        place = db.query(Place).filter(
+            Place.id == schedule_data.place_id,
+            Place.user_id == current_user.id
+        ).first()
+        if not place:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={
+                    "message": "장소가 등록되어 있지 않습니다. 먼저 장소를 등록해주세요.",
+                    "redirect_to": "/place/create"
+                }
+            )
 
-    # people_ids 유효성 검증 (현재 유저 소유만 필터링)
-    people_list = db.query(People).filter(
-        People.id.in_(schedule_data.people_ids),
-        People.user_id == current_user.id
-    ).all()
+    # people_ids 유효성 검증 (입력된 경우에만)
+    people_list = []
+    if schedule_data.people_ids:
+        people_list = db.query(People).filter(
+            People.id.in_(schedule_data.people_ids),
+            People.user_id == current_user.id
+        ).all()
+
+        found_ids = {p.id for p in people_list}
+        missing_ids = set(schedule_data.people_ids) - found_ids
+        if missing_ids:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={
+                    "message": "등록되지 않은 인물이 포함되어 있습니다. 먼저 인물을 등록해주세요.",
+                    "redirect_to": "/people/register/people",
+                    "missing_people_ids": sorted(missing_ids)
+                }
+            )
 
     new_schedule = Schedule(
         user_id=current_user.id,
