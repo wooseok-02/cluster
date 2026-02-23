@@ -21,8 +21,10 @@ class ActivityLog(Base):
     time = Column(Time)
     memo = Column(String)
 
+    # relationship은 ()안의 테이블 자체에 대한 연결을 할 수 있도록 함. ActivityLog.place
     place = relationship("Place")
     people = relationship("People", secondary=log_people)
+    #back_populates는 상대 테이블의 정보로 자동으로 업데이트해주는 양방향 업데이트 기능.
     photos = relationship("Photo", back_populates="activity_log")
 
 

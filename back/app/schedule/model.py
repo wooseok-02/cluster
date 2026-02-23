@@ -25,4 +25,7 @@ class Schedule(Base):
 
     # 조회 시 place, people 자동 로드
     place = relationship("Place")
+
+    #secondary를 쓰지 않으면, 일일이 해당 스케줄에 있는 사람을 찾는 로직을 짜야한다.
+    #하지만 secondary를 쓰면 알아서 매핑 테이블에서 정보를 수집해서 People 테이블에 있는 객체를 가져온다.
     people = relationship("People", secondary=schedule_people)

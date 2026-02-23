@@ -23,3 +23,15 @@ class PlaceRead(BaseModel):
     status: int
     message: str
     data: PlaceData
+
+
+class PlaceKakaoResult(BaseModel):
+    name: str
+    longitude: float
+    latitude: float
+
+
+class PlaceKakaoResponse(BaseModel):
+    status: int
+    message: str
+    data: list[PlaceKakaoResult]
