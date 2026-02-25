@@ -49,7 +49,6 @@ class ActivityData(BaseModel):
     photos: List[PhotoInfo]
 
     model_config = ConfigDict(from_attributes=True)
-    #DB객체를 파이썬으로 읽게 해줌. -> ActivityData.people 이런 식
 
 
 # ── 응답 wrapper 스키마 ──────────────────────────────────────
@@ -57,3 +56,29 @@ class ActivityRead(BaseModel):
     status: int
     message: str
     data: ActivityData
+
+
+# ── 사진 업로드 분석 결과 스키마 ─────────────────────────────
+class PhotoGroupResult(BaseModel):
+    group_index: int
+    match_type: str         # "schedule" | "place" | "none"
+    date: date
+    time: time
+    latitude: float
+    longitude: float
+    photo_count: int        # 이 그룹의 사진 수
+    # match_type == "schedule" 일 때
+    schedule_id: Optional[int] = None
+    schedule_title: Optional[str] = None
+    place_id: Optional[int] = None
+    place_name: Optional[str] = None
+    people: Optional[list] = None
+    # match_type == "place" 일 때: schedule_id는 None, place 정보만 있음
+    # match_type == "none" 일 때: schedule_id, place_id 모두 None
+
+
+class PhotoUploadResponse(BaseModel):
+    status: int
+    message: str
+    data: List[PhotoGroupResult]
+    skipped_count: int

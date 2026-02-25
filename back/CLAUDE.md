@@ -37,7 +37,7 @@ back/app/
 ├── place/
 │   ├── model.py            # Place 모델
 │   ├── schema.py           # PlaceCreate, PlaceData, PlaceRead
-│   ├── service.py          # create_place, create_place_from_photo, get_place, _extract_gps_from_exif
+│   ├── service.py          # create_place, create_place_from_photo, get_place, _extract_info_from_exif
 │   └── api.py              # /place/create, /place/create/photo, /place/{place_id}
 ├── schedule/
 │   ├── model.py            # Schedule 모델 + SCHEDULE_PEOPLE 매핑 테이블
@@ -244,4 +244,4 @@ back/app/
 - `embedding` 필드는 현재 Optional로 처리 (얼굴 인식 기능은 추후 구현)
 - 비밀번호 해싱은 추후 적용 예정 (현재 평문 저장)
 - 사진 업로드 시 UploadFile + Form 조합은 `python-multipart` 패키지 필요 (이미 설치됨)
-- GPS DMS(도분초) → 십진수 변환 함수는 place/service.py의 _extract_gps_from_exif에 구현됨
+- GPS DMS(도분초) → 십진수 변환 함수는 place/service.py의 _extract_info_from_exif에 구현됨

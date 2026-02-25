@@ -21,9 +21,12 @@ def create_people(db: Session, people_data: PersonCreate, current_user : get_cur
     return new_people
 
 #한명의 친구의 정보 조회
-def get_people(db: Session, current_user : User):
+def get_people(db: Session, people_name , current_user : User):
     user_id = current_user.id
-    people_info = db.query(People).filter(People.user_id == user_id).first()
+    people_info = db.query(People).filter(
+        People.user_id == current_user.id,
+        People.name == people_name
+    ).first()
     if not people_info:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -31,3 +34,14 @@ def get_people(db: Session, current_user : User):
         )
     #리턴할 스키마대로 반환하기
     return people_info
+
+def load_personList(db : Session, current_user : User) :
+    personList = db.query(People).filter(
+        People.user_id == current_user.id
+    ).all()
+    if not personList :
+        raise HTTPException(
+            status_code= status.HTTP_404_NOT_FOUND,
+            detail = "등록된 사람이 없습니다."
+        )
+    return personList

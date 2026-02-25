@@ -1,7 +1,7 @@
-from fastapi import APIRouter, Depends, UploadFile, File, Form
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-from place.schema import PlaceCreate, PlaceRead, PlaceKakaoResponse
-from place.service import create_place_from_photo, get_place, kakao_place_search, create_place_from_kakao
+from place.schema import PlaceCreate, PlaceRead, PlaceKakaoResponse, PlaceListRead
+from place.service import get_place, kakao_place_search, create_place_from_kakao, get_placeList
 from config.database import get_db
 from auth.token import get_current_user
 
@@ -11,22 +11,7 @@ router = APIRouter(
 )
 
 
-@router.post("/create/photo", response_model=PlaceRead)
-async def register_place_from_photo(
-    name: str = Form(...),
-    photo: UploadFile = File(...),
-    db: Session = Depends(get_db),
-    current_user=Depends(get_current_user)
-):
-    photo_bytes = await photo.read()
-    new_place = create_place_from_photo(db, photo_bytes, name, current_user)
-    return {
-        "status": 200,
-        "message": "Place created from photo successfully",
-        "data": new_place
-    }
-
-
+# 장소 찾기
 @router.get("/kakao/find_place", response_model=PlaceKakaoResponse)
 async def kakao_search_place(query: str, current_user=Depends(get_current_user)):
     results = await kakao_place_search(query)
@@ -37,6 +22,7 @@ async def kakao_search_place(query: str, current_user=Depends(get_current_user))
     }
 
 
+# 장소 저장
 @router.post("/create/kakao/place", response_model=PlaceRead)
 def register_place_from_kakao(
     place_data: PlaceCreate,
@@ -58,4 +44,13 @@ def load_place(place_id: int, db: Session = Depends(get_db), current_user=Depend
         "status": 200,
         "message": "Place retrieved successfully",
         "data": place
+    }
+
+@router.get("load/placeList",response_model=PlaceListRead)
+def load_placeList(db : Session = Depends(get_db), current_user = Depends(get_current_user)):
+    placeList = get_placeList(db, current_user)
+    return {
+        "status" : 200,
+        "message" : "장소 리스트가 성공적으로 반환되었습니다.",
+        "data" : placeList
     }

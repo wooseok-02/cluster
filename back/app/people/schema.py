@@ -27,3 +27,11 @@ class PersonRead(BaseModel):
 
     class Config:
         from_attributes = True
+
+class PersonListRead(BaseModel):
+    status: int
+    message: str
+    data: list[PersonData]
+
+class PersonName(BaseModel) : 
+    name : str

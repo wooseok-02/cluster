@@ -8,10 +8,11 @@ from PIL.ExifTags import TAGS, GPSTAGS
 import io
 import httpx
 from config.config import settings
+from datetime import datetime
 
 
-def _extract_gps_from_exif(photo_bytes: bytes) -> tuple[float, float]:
-    """사진 EXIF에서 위도·경도를 추출해 (latitude, longitude) 십진수로 반환"""
+def _extract_info_from_exif(photo_bytes: bytes) -> tuple[float, float, datetime]:
+    """사진 EXIF에서 위도·경도·촬영일시를 추출해 (latitude, longitude, datetime) 반환"""
     image = Image.open(io.BytesIO(photo_bytes))
     exif_data = image._getexif()
 
@@ -22,11 +23,21 @@ def _extract_gps_from_exif(photo_bytes: bytes) -> tuple[float, float]:
         )
 
     gps_info_raw = None
+    date_info_raw = None
     for tag_id, value in exif_data.items():
         if TAGS.get(tag_id) == "GPSInfo":
             gps_info_raw = value
+        elif TAGS.get(tag_id) == "DateTimeOriginal":
+            date_info_raw = value
+            date = datetime.strptime(date_info_raw, "%Y:%m:%d %H:%M:%S")
+        if gps_info_raw is not None and date_info_raw is not None:
             break
 
+    if not date_info_raw:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="사진에 날짜 정보가 없습니다"
+        )
     if not gps_info_raw:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -53,22 +64,7 @@ def _extract_gps_from_exif(photo_bytes: bytes) -> tuple[float, float]:
     latitude = dms_to_decimal(gps_info["GPSLatitude"], gps_info.get("GPSLatitudeRef", "N"))
     longitude = dms_to_decimal(gps_info["GPSLongitude"], gps_info.get("GPSLongitudeRef", "E"))
 
-    return latitude, longitude
-
-
-def create_place_from_photo(db: Session, photo_bytes: bytes, name: str, current_user: User):
-    latitude, longitude = _extract_gps_from_exif(photo_bytes)
-
-    new_place = Place(
-        name=name,
-        latitude=latitude,
-        longitude=longitude,
-        user_id=current_user.id
-    )
-    db.add(new_place)
-    db.commit()
-    db.refresh(new_place)
-    return new_place
+    return latitude, longitude, date
 
 
 async def kakao_place_search(query: str) -> list[dict]:
@@ -92,6 +88,8 @@ async def kakao_place_search(query: str) -> list[dict]:
             "name": doc["place_name"],
             "longitude": float(doc["x"]),  # x = 경도
             "latitude": float(doc["y"]),   # y = 위도
+            "category_code": doc["category_group_code"],
+            "category_name": doc["category_group_name"]
         }
         for doc in documents
     ]
@@ -114,7 +112,9 @@ def create_place_from_kakao(
         name=place_data.name,
         longitude=place_data.longitude,
         latitude=place_data.latitude,
-        user_id=current_user.id
+        user_id=current_user.id,
+        category_name=place_data.category_name,
+        category_code=place_data.category_code
     )
     db.add(new_place)
     db.commit()
@@ -126,10 +126,20 @@ def get_place(db: Session, place_id: int, current_user: User):
     place = db.query(Place).filter(
         Place.id == place_id,
         Place.user_id == current_user.id
-    ).first()
+    ).all()
     if not place:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Place not found"
         )
     return place
+
+def get_placeList(db :Session, current_user : User) :
+    placeList = db.query(Place).filter(
+        Place.user_id == current_user.id).all()
+    if not placeList :
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Place not found"
+        )
+    return placeList

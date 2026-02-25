@@ -12,3 +12,5 @@ class Place(Base):
     visit_count = Column(Integer, default=1)
     status = Column(String, default="new")
     user_id = Column(Integer, ForeignKey("USER.id"))
+    category_name = Column(String)
+    category_code = Column(String)
