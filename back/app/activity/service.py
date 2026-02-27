@@ -1,3 +1,9 @@
+# 파이프라인 원칙:
+# 모든 경로 → register_schedule → confirm_schedule → ActivityLog
+# 사진 업로드: upload_photos(분석만) → [매칭 Schedule 있음] confirm_schedule
+#                                    → [매칭 Schedule 없음] register_schedule → confirm_schedule
+# 수동 생성: register_schedule → confirm_schedule
+
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, UploadFile, status
 from datetime import date
@@ -9,9 +15,7 @@ import uuid
 from activity.model import ActivityLog, Photo, log_people
 from schedule.model import Schedule
 from place.model import Place
-from people.model import People
 from auth.model import User
-from activity.schema import ActivityCreate
 from place.service import _extract_info_from_exif
 
 
@@ -224,84 +228,6 @@ def confirm_schedule(
         db.commit()
         db.refresh(activity_log)
 
-    return activity_log
-
-
-# ── Activity 직접 생성 ────────────────────────────────────────
-def create_activity_direct(db: Session, activity_data: ActivityCreate, current_user: User):
-    if activity_data.place_id is not None:
-        place = db.query(Place).filter(
-            Place.id == activity_data.place_id,
-            Place.user_id == current_user.id
-        ).first()
-        if not place:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail={
-                    "message": "장소가 등록되어 있지 않습니다. 먼저 장소를 등록해주세요.",
-                    "redirect_to": "/place/create"
-                }
-            )
-
-    people_list = []
-    if activity_data.people_ids:
-        people_list = db.query(People).filter(
-            People.id.in_(activity_data.people_ids),
-            People.user_id == current_user.id
-        ).all()
-
-        if len(people_list) != len(set(activity_data.people_ids)):
-            found_ids = {p.id for p in people_list}
-            missing_ids = set(activity_data.people_ids) - found_ids
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail={
-                    "message": "존재하지 않는 인물이 포함되어 있습니다",
-                    "redirect_to": "/people/register/people",
-                    "missing_people_ids": sorted(missing_ids)
-                }
-            )
-
-    activity_log = ActivityLog(
-        user_id=current_user.id,
-        place_id=activity_data.place_id,
-        date=activity_data.date,
-        time=activity_data.time,
-        memo=activity_data.memo
-    )
-    activity_log.people = people_list
-
-    activity_date = activity_data.date
-
-    # People count 중복 방지 — 같은 날 이미 만남 기록 있으면 증가 안 함
-    for person in people_list:
-        already_met = (
-            db.query(ActivityLog)
-            .join(log_people, ActivityLog.log_id == log_people.c.log_id)
-            .filter(
-                ActivityLog.user_id == current_user.id,
-                ActivityLog.date == activity_date,
-                log_people.c.people_id == person.id
-            ).first()
-        )
-        if not already_met:
-            person.count += 1
-
-    # Place visit_count 중복 방지 — 같은 날 이미 방문 기록 있으면 증가 안 함
-    if activity_data.place_id:
-        place = db.query(Place).filter(Place.id == activity_data.place_id).first()
-        if place:
-            already_visited = db.query(ActivityLog).filter(
-                ActivityLog.user_id == current_user.id,
-                ActivityLog.date == activity_date,
-                ActivityLog.place_id == activity_data.place_id
-            ).first()
-            if not already_visited:
-                place.visit_count += 1
-
-    db.add(activity_log)
-    db.commit()
-    db.refresh(activity_log)
     return activity_log
 
 

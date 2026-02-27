@@ -25,6 +25,7 @@ def register_schedule(
     }
 
 
+
 @router.get("/{schedule_id}", response_model=ScheduleRead)
 def load_schedule(
     schedule_id: int,

@@ -1,17 +1,9 @@
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict
 from datetime import date, time
 from typing import List, Optional
 
 
 # ── 요청 스키마 ──────────────────────────────────────────────
-class ActivityCreate(BaseModel):
-    place_id: Optional[int] = None
-    people_ids: List[int] = Field(default_factory=list)
-    date: date
-    time: time
-    memo: str
-
-
 class ConfirmRequest(BaseModel):
     memo: Optional[str] = None
 
