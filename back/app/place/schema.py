@@ -1,5 +1,6 @@
 from pydantic import BaseModel, ConfigDict
 from typing import Optional
+from datetime import date
 
 
 class PlaceCreate(BaseModel):
@@ -9,19 +10,15 @@ class PlaceCreate(BaseModel):
     category_code: str
     category_name: str
 
+class PlaceLog(BaseModel) :
+    log_id : int
+    date : date
 
 class PlaceData(BaseModel):
-    id: int
     name: str
-    longitude: float
-    latitude: float
     visit_count: int
     status: str
-    user_id: int
-    category_code: Optional[str] = None
-    category_name: Optional[str] = None
-
-    model_config = ConfigDict(from_attributes=True)
+    logs : list[PlaceLog]
 
 
 class PlaceRead(BaseModel):

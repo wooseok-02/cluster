@@ -9,7 +9,7 @@ import io
 import httpx
 from config.config import settings
 from datetime import datetime
-
+from activity.model import ActivityLog
 
 def _extract_info_from_exif(photo_bytes: bytes) -> tuple[float, float, datetime]:
     """사진 EXIF에서 위도·경도·촬영일시를 추출해 (latitude, longitude, datetime) 반환"""
@@ -126,13 +126,21 @@ def get_place(db: Session, place_id: int, current_user: User):
     place = db.query(Place).filter(
         Place.id == place_id,
         Place.user_id == current_user.id
-    ).all()
+    ).first()
     if not place:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Place not found"
         )
-    return place
+    log = db.query(ActivityLog).filter(
+        ActivityLog.place_id == place_id
+    ).all()
+    return {
+        "name" : place.name,
+        "visit_count" : place.visit_count,
+        "status" : place.status,
+        "logs" : [{"log_id" : i.log_id, "date" : i.date}for i in log]
+    }
 
 def get_placeList(db :Session, current_user : User) :
     placeList = db.query(Place).filter(
