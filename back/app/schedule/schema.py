@@ -13,6 +13,9 @@ class ScheduleCreate(BaseModel):
     end_time: time      # 종료 시각
     memo: str
 
+class GetScheduleList(BaseModel):
+    year : datetime
+    month : datetime
 
 # ── 응답 중첩 스키마 ──────────────────────────────────────────
 class PlaceInfo(BaseModel):
@@ -42,6 +45,9 @@ class ScheduleData(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+class ScheduleList(BaseModel):
+    date : datetime
+    title : str
 
 # ── 응답 wrapper 스키마 ──────────────────────────────────────
 class ScheduleRead(BaseModel):

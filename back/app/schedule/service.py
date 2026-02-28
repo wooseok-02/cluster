@@ -6,6 +6,7 @@ from place.model import Place
 from people.model import People
 from auth.model import User
 from schedule.schema import ScheduleCreate
+from sqlalchemy import extract
 
 
 def create_schedule(db: Session, schedule_data: ScheduleCreate, current_user: User):
@@ -81,3 +82,17 @@ def get_schedule(db: Session, schedule_id: int, current_user: User):
             detail="Schedule not found"
         )
     return schedule
+
+def scheList(db : Session, year, month, current_user) :
+    List = db.query(Schedule).filter(
+        Schedule.user_id == current_user.id,
+        extract("year", Schedule.start_time) == year,
+        extract("month", Schedule.start_time) == month
+    ).all()
+
+    if not List :
+        raise HTTPException(
+            status_code = status.HTTP_404_NOT_FOUND,
+            detail = "일치하는 날짜의 일정을 찾지 못했습니다."
+        )
+    return [{"date" : i.start_time, "title" : i.title}for i in List]
