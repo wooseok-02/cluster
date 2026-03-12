@@ -25,7 +25,7 @@ def register_user(db : Session, user_data : UserCreate):
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
-    return new_user
+    return new_user, token
 
 def login_user(db : Session, form_data: OAuth2PasswordRequestForm):
     user = db.query(User).filter(User.email == form_data.username, User.password == form_data.password).first()

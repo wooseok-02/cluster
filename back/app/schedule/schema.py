@@ -13,10 +13,6 @@ class ScheduleCreate(BaseModel):
     end_time: time      # 종료 시각
     memo: str
 
-class GetScheduleList(BaseModel):
-    year : datetime
-    month : datetime
-
 # ── 응답 중첩 스키마 ──────────────────────────────────────────
 class PlaceInfo(BaseModel):
     id: int

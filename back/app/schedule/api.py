@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
-from schedule.schema import ScheduleCreate, ScheduleRead, ScheduleList, GetScheduleList
+from schedule.schema import ScheduleCreate, ScheduleRead, ScheduleList
 from schedule.service import create_schedule, get_schedule, scheList
 from config.database import get_db
 from auth.token import get_current_user
