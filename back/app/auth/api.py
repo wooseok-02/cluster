@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from auth.schema import UserCreate, UserRead, UserLogin, UserLoginResponse
+from auth.schema import UserCreate, UserRead, UserLogin, UserLoginResponse, UserMeResponse
 from auth.service import register_user, login_user
 from config.database import get_db
 from auth.model import User
+from auth.token import get_current_user
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 
 router = APIRouter(
@@ -39,4 +40,16 @@ def login(db: Session = Depends(get_db), form_data: OAuth2PasswordRequestForm = 
         "access_token" : token,
         "token_type" : "bearer",
         "username" : form_data.username
+    }
+
+@router.get("/me", response_model=UserMeResponse)
+def get_me(current_user: User = Depends(get_current_user)):
+    return {
+        "status": 200,
+        "message": "User info retrieved successfully",
+        "id": current_user.id,
+        "email": current_user.email,
+        "nick_name": current_user.nick_name,
+        "age": current_user.age,
+        "gender": current_user.gender,
     }

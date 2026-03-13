@@ -46,7 +46,7 @@ def load_place(place_id: int, db: Session = Depends(get_db), current_user=Depend
         "data": place
     }
 
-@router.get("load/placeList",response_model=PlaceListRead)
+@router.get("/load/placeList", response_model=PlaceListRead)
 def load_placeList(db : Session = Depends(get_db), current_user = Depends(get_current_user)):
     placeList = get_placeList(db, current_user)
     return {

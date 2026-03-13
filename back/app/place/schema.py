@@ -15,10 +15,14 @@ class PlaceLog(BaseModel) :
     date : date
 
 class PlaceData(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
     name: str
+    longitude: float
+    latitude: float
     visit_count: int
     status: str
-    logs : list[PlaceLog]
+    logs: list[PlaceLog] = []  # 목록 조회 시엔 빈 배열, 상세 조회 시엔 채워짐
 
 
 class PlaceRead(BaseModel):

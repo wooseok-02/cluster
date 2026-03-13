@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
-from schedule.schema import ScheduleCreate, ScheduleRead, ScheduleList
-from schedule.service import create_schedule, get_schedule, scheList
+from schedule.schema import ScheduleCreate, ScheduleRead, ScheduleList, ScheduleUpdate
+from schedule.service import create_schedule, get_schedule, scheList, update_schedule
 from config.database import get_db
 from auth.token import get_current_user
 
@@ -39,7 +39,22 @@ def load_schedule(
         "data": schedule
     }
 
-@router.get("load/scheduleList", response_model=list[ScheduleList])
+@router.patch("/{schedule_id}", response_model=ScheduleRead)
+def edit_schedule(
+    schedule_id: int,
+    update_data: ScheduleUpdate,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    updated = update_schedule(db, schedule_id, update_data, current_user)
+    return {
+        "status": 200,
+        "message": "Schedule updated successfully",
+        "data": updated
+    }
+
+
+@router.get("/load/scheduleList", response_model=list[ScheduleList])
 def load_scheduleList(
     db : Session = Depends(get_db),
     year : int = Query(...),

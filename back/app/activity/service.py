@@ -184,31 +184,34 @@ def confirm_schedule(
     )
     activity_log.people = list(schedule.people)
 
-    # People count 중복 방지 — 같은 날 이미 만남 기록 있으면 증가 안 함
+    # People count 중복 방지 — 같은 날 이미 완료된 다른 일정에 같은 사람이 있으면 증가 안 함
+    from schedule.model import Schedule as ScheduleModel, schedule_people
+    completed_today = (
+        db.query(ScheduleModel)
+        .filter(
+            ScheduleModel.user_id == current_user.id,
+            ScheduleModel.status == "Completed",
+            ScheduleModel.id != schedule.id,
+        ).all()
+    )
+    completed_today_same_date = [
+        s for s in completed_today if s.start_time.date() == activity_date
+    ]
+    counted_people_ids = set()
+    for s in completed_today_same_date:
+        for p in s.people:
+            counted_people_ids.add(p.id)
+    counted_place_ids = {s.place_id for s in completed_today_same_date if s.place_id}
+
     for person in activity_log.people:
-        already_met = (
-            db.query(ActivityLog)
-            .join(log_people, ActivityLog.log_id == log_people.c.log_id)
-            .filter(
-                ActivityLog.user_id == current_user.id,
-                ActivityLog.date == activity_date,
-                log_people.c.people_id == person.id
-            ).first()
-        )
-        if not already_met:
+        if person.id not in counted_people_ids:
             person.count += 1
 
-    # Place visit_count 중복 방지 — 같은 날 이미 방문 기록 있으면 증가 안 함
+    # Place visit_count 중복 방지 — 같은 날 이미 완료된 다른 일정에 같은 장소 있으면 증가 안 함
     if schedule.place_id:
         place = db.query(Place).filter(Place.id == schedule.place_id).first()
-        if place:
-            already_visited = db.query(ActivityLog).filter(
-                ActivityLog.user_id == current_user.id,
-                ActivityLog.date == activity_date,
-                ActivityLog.place_id == schedule.place_id
-            ).first()
-            if not already_visited:
-                place.visit_count += 1
+        if place and schedule.place_id not in counted_place_ids:
+            place.visit_count += 1
 
     db.add(activity_log)
     schedule.status = "Completed"

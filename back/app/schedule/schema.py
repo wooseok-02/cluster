@@ -28,6 +28,13 @@ class PersonInfo(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class PhotoInfo(BaseModel):
+    id: int
+    photo_url: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 # ── 응답 data 스키마 ─────────────────────────────────────────
 class ScheduleData(BaseModel):
     id: int
@@ -38,10 +45,21 @@ class ScheduleData(BaseModel):
     status: str
     place: Optional[PlaceInfo] = None   # 장소 미지정 시 null
     people: List[PersonInfo]
+    photos: List[PhotoInfo] = []        # Completed 일정의 사진 목록
 
     model_config = ConfigDict(from_attributes=True)
 
+class ScheduleUpdate(BaseModel):
+    title: Optional[str] = None
+    place_id: Optional[int] = None
+    people_ids: Optional[List[int]] = None
+    date: Optional[date] = None
+    start_time: Optional[time] = None
+    end_time: Optional[time] = None
+    memo: Optional[str] = None
+
 class ScheduleList(BaseModel):
+    id : int
     date : datetime
     title : str
 

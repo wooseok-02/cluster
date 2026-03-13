@@ -30,3 +30,12 @@ class UserLoginResponse(BaseModel):
     age : int
     gender : str
     access_token : str
+
+class UserMeResponse(BaseModel):
+    status: int
+    message: str
+    id : int
+    email : str
+    nick_name : str
+    age : int
+    gender : str

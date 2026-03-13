@@ -136,10 +136,13 @@ def get_place(db: Session, place_id: int, current_user: User):
         ActivityLog.place_id == place_id
     ).all()
     return {
-        "name" : place.name,
-        "visit_count" : place.visit_count,
-        "status" : place.status,
-        "logs" : [{"log_id" : i.log_id, "date" : i.date}for i in log]
+        "id": place.id,
+        "name": place.name,
+        "longitude": place.longitude,
+        "latitude": place.latitude,
+        "visit_count": place.visit_count,
+        "status": place.status,
+        "logs": [{"log_id": i.log_id, "date": i.date} for i in log]
     }
 
 def get_placeList(db :Session, current_user : User) :
