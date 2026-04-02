@@ -53,7 +53,7 @@ class ScheduleUpdate(BaseModel):
     title: Optional[str] = None
     place_id: Optional[int] = None
     people_ids: Optional[List[int]] = None
-    date: Optional[date] = None
+    date: Optional[datetime] = None
     start_time: Optional[time] = None
     end_time: Optional[time] = None
     memo: Optional[str] = None
