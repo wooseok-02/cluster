@@ -13,7 +13,9 @@ from fastapi.middleware.cors import CORSMiddleware
 Base.metadata.create_all(bind=engine)
 
 origins = [
-    "http://localhost:5173"
+    "http://localhost:5173",
+    "https://cluster-one-beta.vercel.app",
+    "https://*.vercel.app",
 ]
 
 def create_app():
