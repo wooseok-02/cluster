@@ -16,7 +16,7 @@
 
 ## 프로젝트 구조
 
-```
+```d
 back/app/
 ├── main.py                 # FastAPI 앱 생성, 라우터 등록
 ├── config/
