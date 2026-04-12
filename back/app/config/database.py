@@ -5,8 +5,7 @@ from config.config import settings
 
 # 2) 엔진 생성
 engine = create_engine(
-    settings.DATABASE_URL,
-    connect_args={"check_same_thread": False}
+    settings.DATABASE_URL
 )
 
 # 3) 세션 팩토리 — API 요청마다 DB 세션을 하나씩 만들어 쓸 거예요

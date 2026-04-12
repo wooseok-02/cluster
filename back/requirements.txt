@@ -20,6 +20,7 @@ python-jose==3.5.0
 python-multipart==0.0.22
 rsa==4.9.1
 six==1.17.0
+psycopg2-binary==2.9.10
 SQLAlchemy==2.0.46
 starlette==0.52.1
 typing-inspection==0.4.2
