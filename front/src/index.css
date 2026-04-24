@@ -1,1 +1,42 @@
 @import "tailwindcss";
+
+@theme inline {
+  --font-sans: 'Noto Sans KR', system-ui, sans-serif;
+  --color-primary: #5B40E4;
+  --color-primary-light: #EEE9FD;
+  --color-status-new: #4C6FFF;
+  --color-status-best: #FF4B8B;
+  --color-status-old: #9CA3AF;
+  --color-gray-border: #E5E7EB;
+  --color-text-main: #111827;
+  --color-text-sub: #6B7280;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Noto Sans KR', system-ui, sans-serif;
+  background: #f3f4f6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  display: flex;
+  justify-content: center;
+  min-height: 100vh;
+  background: #f3f4f6;
+}
+
+.app-shell {
+  width: 100%;
+  max-width: 448px;
+  min-height: 100vh;
+  background: #ffffff;
+  position: relative;
+  overflow-x: hidden;
+}
