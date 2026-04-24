@@ -1,5 +1,5 @@
 // 등록된 사람 목록 페이지 — ClusterView UI로 시각화
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getPeopleList } from '../api/people'
 import { useAuth } from '../context/AuthContext'
@@ -54,7 +54,11 @@ function ClusterView({ people, currentUser }) {
     return 52
   }
 
-  const visiblePeople = people.slice(0, 6)
+  // 페이지 로드마다 순서를 섞어서 무작위 배치
+  const visiblePeople = useMemo(() => {
+    const shuffled = [...people].sort(() => Math.random() - 0.5)
+    return shuffled.slice(0, 6)
+  }, [people])
 
   return (
     <div className="relative w-full mx-auto" style={{ maxWidth: '400px', height: '420px' }}>
@@ -90,7 +94,7 @@ function ClusterView({ people, currentUser }) {
           <div className="relative">
             <Avatar
               name={person.name}
-              image={person.image ?? null}
+              image={person.photo_url ?? null}
               size={getAvatarSize(person.status)}
               status={person.status}
             />

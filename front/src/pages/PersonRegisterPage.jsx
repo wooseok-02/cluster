@@ -13,6 +13,7 @@ export default function PersonRegisterPage() {
     address: '',
   })
   const [preview, setPreview] = useState(null)
+  const [photoFile, setPhotoFile] = useState(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -23,6 +24,7 @@ export default function PersonRegisterPage() {
   const handlePhotoChange = (e) => {
     const file = e.target.files[0]
     if (file) {
+      setPhotoFile(file)
       const reader = new FileReader()
       reader.onloadend = () => setPreview(reader.result)
       reader.readAsDataURL(file)
@@ -34,7 +36,7 @@ export default function PersonRegisterPage() {
     setError('')
     setLoading(true)
     try {
-      await registerPerson({ ...form, age: Number(form.age) })
+      await registerPerson({ ...form, age: Number(form.age), photo: photoFile })
       navigate(from === 'schedule' ? '/schedule/create' : '/people')
     } catch (err) {
       setError(err.response?.data?.detail || '등록에 실패했습니다.')

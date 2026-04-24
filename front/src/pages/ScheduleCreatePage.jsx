@@ -1,6 +1,6 @@
 // 일정 생성 페이지 — 검색 필터로 People·Place 선택, 등록 후 복귀 시 폼 상태 복원
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { createSchedule } from '../api/schedule'
 import { getPeopleList } from '../api/people'
 import { getPlaceList } from '../api/place'
@@ -9,8 +9,10 @@ const DRAFT_KEY = 'scheduleFormDraft'
 
 export default function ScheduleCreatePage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const initialDate = searchParams.get('date') || ''
 
-  const [form, setForm] = useState({ title: '', date: '', start_time: '', end_time: '', memo: '' })
+  const [form, setForm] = useState({ title: '', date: initialDate, start_time: '', end_time: '', memo: '' })
   const [selectedPeopleIds, setSelectedPeopleIds] = useState([])
   const [selectedPlaceId, setSelectedPlaceId] = useState(null)
 

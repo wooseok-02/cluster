@@ -191,4 +191,4 @@ def scheList(db : Session, year, month, current_user) :
             status_code = status.HTTP_404_NOT_FOUND,
             detail = "일치하는 날짜의 일정을 찾지 못했습니다."
         )
-    return [{"id": i.id, "date": i.start_time, "title": i.title} for i in List]
+    return [{"id": i.id, "date": i.start_time, "title": i.title, "status": i.status} for i in List]

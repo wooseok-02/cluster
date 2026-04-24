@@ -23,7 +23,13 @@ async def create_people(
         import cloudinary
         import cloudinary.uploader
         import io
-        cloudinary.config(cloudinary_url=settings.CLOUDINARY_URL)
+        from urllib.parse import urlparse
+        parsed = urlparse(settings.CLOUDINARY_URL)
+        cloudinary.config(
+            cloud_name=parsed.hostname,
+            api_key=parsed.username,
+            api_secret=parsed.password,
+        )
         photo_bytes = await photo.read()
         result = cloudinary.uploader.upload(
             io.BytesIO(photo_bytes),
@@ -65,6 +71,32 @@ def get_people(db: Session, people_id , current_user : User):
         "status" : people_info.status,
         "logs" : [{"log_id" : i.log_id, "date" : i.date}for i in log]
     }
+
+async def update_person_photo(db: Session, people_id: int, photo: UploadFile, current_user: User):
+    person = db.query(People).filter(
+        People.id == people_id,
+        People.user_id == current_user.id
+    ).first()
+    if not person:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="사람을 찾을 수 없습니다.")
+
+    import cloudinary
+    import cloudinary.uploader
+    import io
+    from urllib.parse import urlparse
+    parsed = urlparse(settings.CLOUDINARY_URL)
+    cloudinary.config(
+        cloud_name=parsed.hostname,
+        api_key=parsed.username,
+        api_secret=parsed.password,
+    )
+    photo_bytes = await photo.read()
+    result = cloudinary.uploader.upload(io.BytesIO(photo_bytes), folder="cluster/people")
+    person.photo_url = result["secure_url"]
+    db.commit()
+    db.refresh(person)
+    return person
+
 
 def load_personList(db : Session, current_user : User) :
     personList = db.query(People).filter(

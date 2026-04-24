@@ -62,6 +62,7 @@ class ScheduleList(BaseModel):
     id : int
     date : datetime
     title : str
+    status : str
 
 # ── 응답 wrapper 스키마 ──────────────────────────────────────
 class ScheduleRead(BaseModel):

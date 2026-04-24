@@ -223,9 +223,14 @@ def confirm_schedule(
         import cloudinary
         import cloudinary.uploader
         import io
-        
-        cloudinary.config(cloudinary_url=settings.CLOUDINARY_URL)
-        
+        from urllib.parse import urlparse
+        parsed = urlparse(settings.CLOUDINARY_URL)
+        cloudinary.config(
+            cloud_name=parsed.hostname,
+            api_key=parsed.username,
+            api_secret=parsed.password,
+        )
+
         for photo_bytes in photo_bytes_list:
             upload_result = cloudinary.uploader.upload(
                 io.BytesIO(photo_bytes),

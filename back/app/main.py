@@ -12,13 +12,22 @@ from fastapi.middleware.cors import CORSMiddleware
 
 Base.metadata.create_all(bind=engine)
 
-# SQLite 마이그레이션 — 기존 테이블에 새 컬럼 추가 (없을 때만)
-with engine.connect() as conn:
-    from sqlalchemy import text, inspect
-    inspector = inspect(engine)
-    existing_cols = [c["name"] for c in inspector.get_columns("PEOPLE")]
-    if "photo_url" not in existing_cols:
-        conn.execute(text("ALTER TABLE PEOPLE ADD COLUMN photo_url TEXT"))
+# 마이그레이션 — PEOPLE 테이블에 photo_url 컬럼 추가 (없을 때만)
+try:
+    with engine.connect() as conn:
+        from sqlalchemy import text, inspect
+        inspector = inspect(engine)
+        # PostgreSQL은 인용 부호 없이 생성된 테이블을 소문자로 저장
+        # SQLAlchemy는 __tablename__ = "PEOPLE"을 그대로 사용하므로 양쪽 모두 시도
+        try:
+            existing_cols = [c["name"] for c in inspector.get_columns("PEOPLE")]
+        except Exception:
+            existing_cols = [c["name"] for c in inspector.get_columns("people")]
+        if "photo_url" not in existing_cols:
+            conn.execute(text('ALTER TABLE "PEOPLE" ADD COLUMN photo_url TEXT'))
+            conn.commit()
+except Exception as e:
+    print(f"[migration] photo_url 컬럼 추가 건너뜀: {e}")
 
 origins = [
     "http://localhost:5173",
