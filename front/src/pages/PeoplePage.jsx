@@ -9,9 +9,9 @@ import BottomTabBar from '../components/BottomTabBar'
 function Avatar({ name, image, size = 52, status = null }) {
   const getStatusColor = (status) => {
     const colors = {
-      New: 'from-blue-100 to-blue-50 ring-2 ring-blue-400',
-      Best: 'from-pink-100 to-pink-50 ring-2 ring-pink-400',
-      Old: 'from-gray-100 to-gray-50 ring-2 ring-gray-400',
+      new: 'from-blue-100 to-blue-50 ring-2 ring-blue-400',
+      best: 'from-pink-100 to-pink-50 ring-2 ring-pink-400',
+      old: 'from-gray-100 to-gray-50 ring-2 ring-gray-400',
     }
     return colors[status] || 'from-purple-100 to-pink-100'
   }
@@ -49,8 +49,8 @@ function ClusterView({ people, currentUser }) {
   const navigate = useNavigate()
 
   const getAvatarSize = (status) => {
-    if (status === 'Best') return 64
-    if (status === 'Old') return 40
+    if (status === 'best') return 64
+    if (status === 'old') return 40
     return 52
   }
 

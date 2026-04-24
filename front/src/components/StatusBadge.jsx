@@ -1,25 +1,31 @@
 const STATUS_STYLES = {
-  New: 'bg-[#4C6FFF] text-white',
-  Best: 'bg-[#FF4B8B] text-white',
-  Old: 'bg-[#9CA3AF] text-white',
+  new: 'bg-[#4C6FFF] text-white',
+  best: 'bg-[#FF4B8B] text-white',
+  old: 'bg-[#9CA3AF] text-white',
+}
+
+const STATUS_LABELS = {
+  new: 'New',
+  best: 'Best',
+  old: 'Old',
 }
 
 export default function StatusBadge({ status, className = '' }) {
-  if (!status) return null
+  if (!status || !STATUS_STYLES[status]) return null
   return (
     <span
-      className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${STATUS_STYLES[status] ?? 'bg-gray-200 text-gray-700'} ${className}`}
+      className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${STATUS_STYLES[status]} ${className}`}
     >
-      {status}
+      {STATUS_LABELS[status]}
     </span>
   )
 }
 
 export function StatusDot({ status, size = 10 }) {
   const colors = {
-    New: '#4C6FFF',
-    Best: '#FF4B8B',
-    Old: '#9CA3AF',
+    new: '#4C6FFF',
+    best: '#FF4B8B',
+    old: '#9CA3AF',
   }
   return (
     <span
