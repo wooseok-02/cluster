@@ -109,19 +109,17 @@ export default function MapPage() {
           </button>
         </div>
       ) : (
-        <div className="px-4 space-y-3">
+        <div className="flex flex-col items-center space-y-3">
           {places.map(place => (
             <button
               key={place.id}
               onClick={() => navigate(`/place/${place.id}`)}
-              className="w-full bg-white rounded-xl border border-gray-200 p-4 flex items-center justify-between"
+              className="bg-white rounded-xl border border-gray-200 flex flex-col justify-between shrink-0"
+              style={{ width: '333px', height: '218px', marginLeft: '30px', marginRight: '30px', padding: '16px', gap: '10px' }}
             >
-              <div className="text-left">
-                <p className="font-medium text-gray-900">{place.name}</p>
-                <p className="text-sm text-gray-500">방문 {place.visit_count}회</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className={`text-sm font-medium`} style={{ color: STATUS_COLOR[place.status] || STATUS_COLOR.new }}>
+              <div className="flex items-center justify-between" style={{ gap: '10px' }}>
+                <p className="font-medium text-gray-900 text-left">{place.name}</p>
+                <span className="text-sm font-medium shrink-0" style={{ color: STATUS_COLOR[place.status] || STATUS_COLOR.new }}>
                   <span
                     className="inline-block w-2 h-2 rounded-full mr-1"
                     style={{ backgroundColor: STATUS_COLOR[place.status] || STATUS_COLOR.new }}
@@ -129,6 +127,7 @@ export default function MapPage() {
                   {STATUS_LABEL[place.status] || place.status}
                 </span>
               </div>
+              <p className="text-sm text-gray-500 text-left">방문 {place.visit_count}회</p>
             </button>
           ))}
         </div>
