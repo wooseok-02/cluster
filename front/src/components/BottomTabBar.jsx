@@ -55,6 +55,12 @@ export default function BottomTabBar() {
   const isMap = isActive('/map')
   const isCalendar = isActive('/calendar')
 
+  const handleAdd = () => {
+    if (isMap) navigate('/place/register')
+    else if (isCalendar) navigate('/photo/upload')
+    else navigate('/people/register')
+  }
+
   return (
     <nav
       className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[448px] bg-white border-t border-gray-100 flex items-end justify-around px-4 pt-3 pb-6 z-50"
@@ -82,7 +88,7 @@ export default function BottomTabBar() {
 
       {/* 중앙 + 버튼 */}
       <button
-        onClick={() => navigate('/people/register')}
+        onClick={handleAdd}
         className="flex flex-col items-center -mt-6 min-w-[56px]"
         aria-label="Add"
       >

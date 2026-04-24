@@ -66,8 +66,19 @@ export default function CalendarPage() {
   return (
     <div className="min-h-screen bg-white pb-20">
       {/* Header */}
-      <div className="px-4 py-4">
+      <div className="px-4 py-4 flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">cluster</h1>
+        <button
+          onClick={() => navigate('/photo/upload')}
+          className="flex items-center gap-1 text-sm text-[#5B40E4] font-medium"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <rect x="3" y="7" width="18" height="14" rx="2" stroke="#5B40E4" strokeWidth="1.8" />
+            <circle cx="12" cy="13" r="4" stroke="#5B40E4" strokeWidth="1.8" />
+            <path d="M9 7L10.5 4H13.5L15 7" stroke="#5B40E4" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          사진 업로드
+        </button>
       </div>
 
       {error && <p className="text-red-500 text-sm px-4 mb-2">{error}</p>}
