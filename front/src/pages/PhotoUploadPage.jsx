@@ -189,6 +189,7 @@ function GroupCard({ group, confirmed, confirming, error, onConfirm, onAddSchedu
       </div>
 
       <p className="text-xs text-gray-400">사진 {group.photo_count}장</p>
+      <p className="text-xs text-gray-400">📌 위도 : {group.latitude.toFixed(5)}, 경도 : {group.longitude.toFixed(5)}</p>
 
       {/* match_type별 상세 */}
       {group.match_type === 'schedule' && (
