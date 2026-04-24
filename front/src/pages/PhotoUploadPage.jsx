@@ -39,6 +39,7 @@ export default function PhotoUploadPage() {
     setUploading(true)
     try {
       const data = await uploadPhotos(files)
+      console.log('upload response:', JSON.stringify(data.data))
       setResults(data.data)
       setSkippedCount(data.skipped_count)
     } catch (err) {
@@ -167,14 +168,23 @@ export default function PhotoUploadPage() {
 
 // 그룹 카드 컴포넌트
 function GroupCard({ group, confirmed, confirming, error, onConfirm, onAddSchedule }) {
-  const dateStr = group.date
+  const dateStr = group.date ? group.date.replace(/-/g, ' - ') : ''
   const timeStr = String(group.time).slice(0, 5)
 
   return (
     <div className={`border rounded p-4 space-y-2 ${confirmed ? 'opacity-60' : ''}`}>
       {/* 그룹 기본 정보 */}
-      <div className="flex justify-between items-center">
-        <p className="text-sm font-medium">{dateStr} {timeStr}</p>
+      <div className="flex justify-between items-start">
+        <div className="space-y-0.5">
+          <p className="text-sm font-medium">날짜 | {dateStr}</p>
+          <p className="text-xs text-gray-500">시간 | {timeStr}</p>
+          {group.latitude != null && group.longitude != null && (
+            <>
+              <p className="text-xs text-gray-500">위도 : {Number(group.latitude).toFixed(3)}</p>
+              <p className="text-xs text-gray-500">경도 : {Number(group.longitude).toFixed(3)}</p>
+            </>
+          )}
+        </div>
         <span className={`text-xs px-2 py-0.5 rounded-full ${
           group.match_type === 'schedule'
             ? 'bg-blue-100 text-blue-600'
@@ -189,7 +199,6 @@ function GroupCard({ group, confirmed, confirming, error, onConfirm, onAddSchedu
       </div>
 
       <p className="text-xs text-gray-400">사진 {group.photo_count}장</p>
-      <p className="text-xs text-gray-400">📌 위도 : {group.latitude.toFixed(5)}, 경도 : {group.longitude.toFixed(5)}</p>
 
       {/* match_type별 상세 */}
       {group.match_type === 'schedule' && (
