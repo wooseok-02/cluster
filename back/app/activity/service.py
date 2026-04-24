@@ -9,9 +9,7 @@ from fastapi import HTTPException, UploadFile, status
 from datetime import date
 from typing import Optional
 import math
-import os
-import uuid
-
+from config.config import settings
 from activity.model import ActivityLog, Photo, log_people
 from schedule.model import Schedule
 from place.model import Place
@@ -222,12 +220,19 @@ def confirm_schedule(
     # photo_url 형식: /static/photos/{uuid}.jpg
     # 나중에 S3로 교체할 때는 이 블록의 저장 경로와 photo_url 값만 바꾸면 됨
     if photo_bytes_list:
-        os.makedirs("static/photos", exist_ok=True)
+        import cloudinary
+        import cloudinary.uploader
+        import io
+        
+        cloudinary.config(cloudinary_url=settings.CLOUDINARY_URL)
+        
         for photo_bytes in photo_bytes_list:
-            filename = f"{uuid.uuid4().hex}.jpg"
-            with open(f"static/photos/{filename}", "wb") as f:
-                f.write(photo_bytes)
-            db.add(Photo(log_id=activity_log.log_id, photo_url=f"/static/photos/{filename}"))
+            upload_result = cloudinary.uploader.upload(
+                io.BytesIO(photo_bytes),
+                folder="cluster/photos"
+            )
+            photo_url = upload_result["secure_url"]
+            db.add(Photo(log_id=activity_log.log_id, photo_url=photo_url))
         db.commit()
         db.refresh(activity_log)
 

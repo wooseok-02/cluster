@@ -15,6 +15,7 @@ class PersonData(BaseModel) :
     relation : str
     address : str
     embedding : Optional[bytes] = None
+    photo_url : Optional[str] = None
     count : int
     status : str
     
@@ -45,6 +46,7 @@ class PersonLoadDetail(BaseModel) :
     age : int
     relation : str
     address : Optional[str]
+    photo_url : Optional[str] = None
     count : int
     status : str
     logs : list[PersonLog]

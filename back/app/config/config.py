@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int
     DATABASE_URL: str
     KAKAO_REST_API_KEY: str
+    CLOUDINARY_URL: str
     class Config:
         env_file = ".env"
     

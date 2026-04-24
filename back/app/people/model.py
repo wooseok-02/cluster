@@ -13,4 +13,5 @@ class People(Base):
     count = Column(Integer, default=0)
     status = Column(String, default="new")
     embedding = Column(LargeBinary)
+    photo_url = Column(String, nullable=True)
     user_id = Column(Integer, ForeignKey("USER.id"))

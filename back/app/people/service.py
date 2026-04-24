@@ -1,20 +1,42 @@
 from sqlalchemy.orm import Session
-from fastapi import HTTPException, status
+from fastapi import HTTPException, UploadFile, status
+from typing import Optional
 from people.model import People
 from auth.model import User
 from auth.token import get_current_user
 from people.schema import PersonCreate
 from activity.model import ActivityLog, log_people
+from config.config import settings
 
 
-def create_people(db: Session, people_data: PersonCreate, current_user : get_current_user):
-    # 현재 로그인한 사용자의 ID를 가져옵니다.
+async def create_people(
+    db: Session,
+    name: str,
+    age: int,
+    relation: str,
+    address: str,
+    current_user: User,
+    photo: Optional[UploadFile] = None,
+):
+    photo_url = None
+    if photo:
+        import cloudinary
+        import cloudinary.uploader
+        import io
+        cloudinary.config(cloudinary_url=settings.CLOUDINARY_URL)
+        photo_bytes = await photo.read()
+        result = cloudinary.uploader.upload(
+            io.BytesIO(photo_bytes),
+            folder="cluster/people"
+        )
+        photo_url = result["secure_url"]
+
     new_people = People(
-        name=people_data.name,
-        age=people_data.age,
-        relation=people_data.relation,
-        address=people_data.address,
-        embedding=people_data.embedding,
+        name=name,
+        age=age,
+        relation=relation,
+        address=address,
+        photo_url=photo_url,
         user_id=current_user.id
     )
     db.add(new_people)
@@ -38,6 +60,7 @@ def get_people(db: Session, people_id , current_user : User):
         "age" : people_info.age,
         "relation" : people_info.relation,
         "address" : people_info.address,
+        "photo_url" : people_info.photo_url,
         "count" : people_info.count,
         "status" : people_info.status,
         "logs" : [{"log_id" : i.log_id, "date" : i.date}for i in log]

@@ -12,6 +12,14 @@ from fastapi.middleware.cors import CORSMiddleware
 
 Base.metadata.create_all(bind=engine)
 
+# SQLite 마이그레이션 — 기존 테이블에 새 컬럼 추가 (없을 때만)
+with engine.connect() as conn:
+    from sqlalchemy import text, inspect
+    inspector = inspect(engine)
+    existing_cols = [c["name"] for c in inspector.get_columns("PEOPLE")]
+    if "photo_url" not in existing_cols:
+        conn.execute(text("ALTER TABLE PEOPLE ADD COLUMN photo_url TEXT"))
+
 origins = [
     "http://localhost:5173",
     "https://cluster-one-beta.vercel.app",
