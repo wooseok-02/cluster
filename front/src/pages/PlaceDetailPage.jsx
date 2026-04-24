@@ -1,15 +1,8 @@
-// 장소 상세 페이지 — 정보 표시, 구글맵 마커, 방문 기록 목록 (자세히 보기는 Activity 스프린트 연결 예정)
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { GoogleMap, Marker, useJsApiLoader } from '@react-google-maps/api'
 import { getPlace } from '../api/place'
-
-const STATUS_LABEL = {
-  new: 'New',
-  regular: 'Regular',
-  best: 'Best',
-  old: 'Old',
-}
+import StatusBadge from '../components/StatusBadge'
 
 export default function PlaceDetailPage() {
   const { id } = useParams()
@@ -33,61 +26,88 @@ export default function PlaceDetailPage() {
   if (error) return <p className="p-4 text-red-500">{error}</p>
 
   return (
-    <div className="p-4 max-w-lg mx-auto pb-6">
-      <button onClick={() => navigate('/map')} className="text-gray-500 text-sm mb-4 block">
-        ← 뒤로
-      </button>
+    <div className="min-h-screen bg-white">
+      {/* Header */}
+      <div className="flex items-center px-4 py-3 border-b border-gray-200">
+        <button onClick={() => navigate(-1)} className="p-2 -ml-2">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
+        </button>
+        <h1 className="flex-1 text-center font-medium text-gray-900">{place.name}</h1>
+        <div className="w-10" />
+      </div>
 
-      <h1 className="text-2xl font-bold mb-1">{place.name}</h1>
-      <p className="text-gray-500 text-sm mb-4">{STATUS_LABEL[place.status] || place.status}</p>
+      {/* Map */}
+      <div className="px-4 py-4">
+        <div className="rounded-2xl overflow-hidden border border-gray-200" style={{ height: '160px' }}>
+          {!isLoaded ? (
+            <div className="w-full h-full bg-gray-100 flex items-center justify-center">
+              <p className="text-gray-400 text-sm">지도 로딩 중...</p>
+            </div>
+          ) : (
+            <GoogleMap
+              mapContainerStyle={{ width: '100%', height: '100%' }}
+              center={{ lat: place.latitude, lng: place.longitude }}
+              zoom={15}
+            >
+              <Marker position={{ lat: place.latitude, lng: place.longitude }} />
+            </GoogleMap>
+          )}
+        </div>
+      </div>
 
-      {/* 구글맵 마커 */}
-      <div className="mb-4">
-        {!isLoaded ? (
-          <p className="text-gray-400 text-sm">지도 로딩 중...</p>
+      {/* Stats Card */}
+      <div className="px-4 mb-6">
+        <div className="bg-white rounded-2xl border border-gray-200 p-4">
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <div>
+              <p className="text-xs text-gray-500 mb-1">방문 횟수</p>
+              <div className="flex items-center gap-2">
+                <span className="text-2xl font-bold text-gray-900">{place.visit_count}회</span>
+              </div>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500 mb-1">상태</p>
+              <div className="flex items-center gap-2">
+                <StatusBadge status={place.status} />
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center justify-between pt-4 border-t border-gray-200">
+            <div>
+              <p className="text-xs text-gray-500">최근 방문</p>
+              <p className="font-medium text-gray-900">
+                {place.logs?.[0]?.date || '-'}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Visit History */}
+      <div className="px-4 pb-8">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-bold text-gray-900">최근 방문</h2>
+        </div>
+        {place.logs.length === 0 ? (
+          <p className="text-gray-400 text-sm">아직 방문 기록이 없습니다.</p>
         ) : (
-          <GoogleMap
-            mapContainerStyle={{ width: '100%', height: '200px', borderRadius: '8px' }}
-            center={{ lat: place.latitude, lng: place.longitude }}
-            zoom={15}
-          >
-            <Marker position={{ lat: place.latitude, lng: place.longitude }} />
-          </GoogleMap>
+          <div className="space-y-2">
+            {place.logs.slice(0, 3).map((log, index) => (
+              <div key={log.log_id} className="flex items-center gap-3">
+                <div className={`w-2 h-2 rounded-full ${index === 0 ? 'bg-[#5B40E4]' : 'bg-[#5B40E4]/40'}`} />
+                <button
+                  onClick={() => navigate(`/schedule/${log.log_id}`)}
+                  className="text-gray-900 text-sm"
+                >
+                  {log.date}
+                </button>
+              </div>
+            ))}
+          </div>
         )}
       </div>
-
-      {/* 장소 정보 */}
-      <div className="border rounded p-4 space-y-2 mb-6">
-        <div className="flex justify-between text-sm">
-          <span className="text-gray-500">방문 횟수</span>
-          <span>{place.visit_count}회</span>
-        </div>
-        <div className="flex justify-between text-sm">
-          <span className="text-gray-500">상태</span>
-          <span>{STATUS_LABEL[place.status] || place.status}</span>
-        </div>
-      </div>
-
-      {/* 방문 기록 */}
-      <h2 className="font-semibold mb-2">방문 기록</h2>
-      {place.logs.length === 0 ? (
-        <p className="text-gray-400 text-sm">아직 방문 기록이 없습니다.</p>
-      ) : (
-        <ul className="space-y-2">
-          {place.logs.map((log) => (
-            <li key={log.log_id} className="border rounded px-3 py-2 flex justify-between items-center">
-              <span className="text-sm">{log.date}</span>
-              {/* TODO: Activity 스프린트에서 /schedule/:id 이동 연결 */}
-              <button
-                onClick={() => navigate(`/schedule/${log.log_id}`)}
-                className="text-blue-500 text-xs border border-blue-500 rounded px-2 py-1"
-              >
-                자세히 보기
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
     </div>
   )
 }

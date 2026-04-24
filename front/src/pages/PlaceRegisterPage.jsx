@@ -1,4 +1,3 @@
-// 장소 등록 페이지 — 카카오 검색 → 미니 지도 미리보기 → 저장
 import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { GoogleMap, Marker, useJsApiLoader } from '@react-google-maps/api'
@@ -56,87 +55,99 @@ export default function PlaceRegisterPage() {
   }
 
   return (
-    <div className="p-4 max-w-lg mx-auto">
-      <div className="flex items-center gap-2 mb-4">
-        <button onClick={() => navigate(from === 'schedule' ? '/schedule/create' : '/map')} className="text-gray-500 text-sm">
-          ← 뒤로
+    <div className="min-h-screen bg-white flex flex-col">
+      {/* Header */}
+      <div className="flex items-center px-4 py-3 border-b border-gray-200">
+        <button onClick={() => navigate(from === 'schedule' ? '/schedule/create' : '/map')} className="p-2 -ml-2">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
         </button>
-        <h1 className="text-xl font-bold">장소 등록</h1>
+        <h1 className="flex-1 text-center font-medium text-gray-900">장소 등록</h1>
+        <div className="w-10" />
       </div>
 
-      {/* 검색창 */}
-      <div className="flex gap-2 mb-4">
-        <input
-          type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="장소명 검색"
-          className="flex-1 border rounded px-3 py-2 text-sm"
-        />
-        <button
-          onClick={handleSearch}
-          disabled={searchLoading}
-          className="bg-blue-500 text-white px-4 py-2 rounded text-sm disabled:opacity-50"
-        >
-          {searchLoading ? '검색 중' : '검색'}
-        </button>
+      {/* Search */}
+      <div className="p-4">
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="장소 검색"
+            className="flex-1 px-4 py-3 bg-white border border-gray-200 rounded-xl text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#5B40E4]/20"
+          />
+          <button
+            onClick={handleSearch}
+            disabled={searchLoading}
+            className="px-6 py-3 bg-[#5B40E4] text-white rounded-xl font-medium disabled:opacity-50"
+          >
+            {searchLoading ? '검색 중' : '검색'}
+          </button>
+        </div>
       </div>
 
-      {error && <p className="text-red-500 text-sm mb-3">{error}</p>}
+      {error && <p className="text-red-500 text-sm px-4 mb-2">{error}</p>}
 
-      {/* 검색 결과 */}
+      {/* Results */}
       {searched && results.length === 0 && (
-        <p className="text-gray-400 text-sm mb-3">검색 결과가 없습니다.</p>
+        <p className="text-gray-400 text-sm px-4 mb-3">검색 결과가 없습니다.</p>
       )}
       {results.length > 0 && (
-        <ul className="space-y-1 mb-4">
+        <div className="flex-1 px-4 space-y-3">
           {results.map((place, idx) => (
-            <li
+            <button
               key={idx}
               onClick={() => setSelectedPlace(place)}
-              className={`border rounded px-3 py-2 text-sm cursor-pointer ${
+              className={`w-full text-left p-4 rounded-xl border transition-colors ${
                 selectedPlace?.name === place.name
-                  ? 'border-blue-500 bg-blue-50'
-                  : 'hover:bg-gray-50'
+                  ? 'bg-[#5B40E4]/10 border-[#5B40E4]'
+                  : 'bg-white border-gray-200'
               }`}
             >
-              <p className="font-medium">{place.name}</p>
-              <p className="text-gray-400 text-xs">{place.category_name}</p>
-            </li>
+              <p className="font-medium text-gray-900">{place.name}</p>
+              {place.category_name && (
+                <p className="text-sm text-[#5B40E4]">{place.category_name}</p>
+              )}
+            </button>
           ))}
-        </ul>
-      )}
-
-      {/* 미니 지도 미리보기 */}
-      {selectedPlace && (
-        <div className="mb-4">
-          <p className="text-sm font-medium mb-1">선택된 장소: {selectedPlace.name}</p>
-          {!isLoaded ? (
-            <p className="text-gray-400 text-sm">지도 로딩 중...</p>
-          ) : (
-            <GoogleMap
-              mapContainerStyle={{ width: '100%', height: '180px', borderRadius: '8px' }}
-              center={{ lat: selectedPlace.latitude, lng: selectedPlace.longitude }}
-              zoom={16}
-            >
-              <Marker
-                position={{ lat: selectedPlace.latitude, lng: selectedPlace.longitude }}
-              />
-            </GoogleMap>
-          )}
         </div>
       )}
 
-      {/* 확인 버튼 */}
+      {/* Selected Place Map Preview */}
       {selectedPlace && (
-        <button
-          onClick={handleSave}
-          disabled={saveLoading}
-          className="w-full bg-blue-500 text-white py-2 rounded disabled:opacity-50"
-        >
-          {saveLoading ? '저장 중...' : '확인'}
-        </button>
+        <div className="px-4 py-4 border-t border-gray-200">
+          <p className="text-sm text-gray-500 mb-2">선택된 장소: {selectedPlace.name}</p>
+          <div className="rounded-xl overflow-hidden border border-gray-200 mb-4" style={{ height: '128px' }}>
+            {!isLoaded ? (
+              <div className="w-full h-full bg-gray-100 flex items-center justify-center">
+                <p className="text-gray-400 text-sm">지도 로딩 중...</p>
+              </div>
+            ) : (
+              <GoogleMap
+                mapContainerStyle={{ width: '100%', height: '100%' }}
+                center={{ lat: selectedPlace.latitude, lng: selectedPlace.longitude }}
+                zoom={16}
+              >
+                <Marker position={{ lat: selectedPlace.latitude, lng: selectedPlace.longitude }} />
+              </GoogleMap>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Confirm Button */}
+      {selectedPlace && (
+        <div className="p-4 pb-8">
+          <button
+            onClick={handleSave}
+            disabled={saveLoading}
+            className="w-full py-4 bg-[#5B40E4] text-white rounded-xl font-medium disabled:opacity-50"
+          >
+            {saveLoading ? '저장 중...' : '확인'}
+          </button>
+        </div>
       )}
     </div>
   )

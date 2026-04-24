@@ -1,9 +1,8 @@
-// Map 탭 — 구글맵 마커 + 장소 텍스트 리스트 함께 표시
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { GoogleMap, Marker, useJsApiLoader } from '@react-google-maps/api'
 import { getPlaceList } from '../api/place'
-import TabBar from '../components/TabBar'
+import BottomTabBar from '../components/BottomTabBar'
 
 const MAP_CENTER = { lat: 37.5665, lng: 126.9780 }
 
@@ -55,86 +54,87 @@ export default function MapPage() {
       ? { lat: places[0].latitude, lng: places[0].longitude }
       : MAP_CENTER
 
+  const hasPlaces = places.length > 0
+
   return (
-    <div className="flex flex-col h-screen pb-12">
-      {/* 헤더 */}
-      <div className="flex justify-between items-center p-4 border-b">
-        <h1 className="text-xl font-bold">Map</h1>
-        <button
-          onClick={() => navigate('/place/register')}
-          className="bg-blue-500 text-white px-3 py-1 rounded text-sm"
-        >
-          + New
-        </button>
+    <div className="min-h-screen bg-white pb-20">
+      {/* Header */}
+      <div className="px-4 py-4">
+        <h1 className="text-2xl font-bold text-gray-900">cluster</h1>
       </div>
 
-      {error && <p className="text-red-500 text-sm px-4 pt-2">{error}</p>}
+      {error && <p className="text-red-500 text-sm px-4 mb-2">{error}</p>}
 
-      {/* 지도 영역 */}
-      <div style={{ height: '300px', flexShrink: 0 }}>
-        {!isLoaded ? (
-          <p className="p-4 text-gray-500 text-sm">지도 로딩 중...</p>
-        ) : (
-          <GoogleMap
-            mapContainerStyle={{ width: '100%', height: '100%' }}
-            center={mapCenter}
-            zoom={13}
-          >
-            {places.map((place) => (
-              <Marker
-                key={place.id}
-                position={{ lat: place.latitude, lng: place.longitude }}
-                icon={getMarkerIcon(place.status)}
-                title={place.name}
-                onClick={() => navigate(`/place/${place.id}`)}
-              />
-            ))}
-          </GoogleMap>
-        )}
-      </div>
-
-      {/* 장소 텍스트 리스트 */}
-      <div className="flex-1 overflow-y-auto p-4">
-        {loading ? (
-          <p className="text-gray-400 text-sm">불러오는 중...</p>
-        ) : places.length === 0 ? (
-          <div className="text-center text-gray-500 mt-8">
-            <p>등록된 장소가 없습니다.</p>
-            <button
-              onClick={() => navigate('/place/register')}
-              className="mt-4 text-blue-500 underline text-sm"
+      {/* Map */}
+      <div className="px-4 mb-6">
+        <div className="relative rounded-2xl overflow-hidden border border-gray-200" style={{ height: '192px' }}>
+          {!isLoaded ? (
+            <div className="w-full h-full bg-gray-100 flex items-center justify-center">
+              <p className="text-gray-400 text-sm">지도 로딩 중...</p>
+            </div>
+          ) : (
+            <GoogleMap
+              mapContainerStyle={{ width: '100%', height: '100%' }}
+              center={mapCenter}
+              zoom={13}
             >
-              첫 번째 장소 등록하기
-            </button>
-          </div>
-        ) : (
-          <ul className="space-y-2">
-            {places.map((place) => (
-              <li
-                key={place.id}
-                onClick={() => navigate(`/place/${place.id}`)}
-                className="border rounded p-3 cursor-pointer hover:bg-gray-50 flex justify-between items-center"
-              >
-                <div>
-                  <p className="font-medium">{place.name}</p>
-                  <p className="text-sm text-gray-400">방문 {place.visit_count}회</p>
-                </div>
-                <div className="flex items-center gap-2">
+              {places.map((place) => (
+                <Marker
+                  key={place.id}
+                  position={{ lat: place.latitude, lng: place.longitude }}
+                  icon={getMarkerIcon(place.status)}
+                  title={place.name}
+                  onClick={() => navigate(`/place/${place.id}`)}
+                />
+              ))}
+            </GoogleMap>
+          )}
+          {hasPlaces && (
+            <div className="absolute bottom-4 right-4 w-4 h-4 bg-[#FF4B8B] rounded-full animate-pulse" />
+          )}
+        </div>
+      </div>
+
+      {/* Content */}
+      {loading ? (
+        <p className="text-gray-400 text-sm px-4">불러오는 중...</p>
+      ) : !hasPlaces ? (
+        <div className="flex flex-col items-center justify-center py-16">
+          <p className="text-gray-500 mb-2">등록된 장소가 없습니다.</p>
+          <button
+            onClick={() => navigate('/place/register')}
+            className="text-[#5B40E4] font-medium"
+          >
+            첫 번째 장소 등록하기
+          </button>
+        </div>
+      ) : (
+        <div className="px-4 space-y-3">
+          {places.map(place => (
+            <button
+              key={place.id}
+              onClick={() => navigate(`/place/${place.id}`)}
+              className="w-full bg-white rounded-xl border border-gray-200 p-4 flex items-center justify-between"
+            >
+              <div className="text-left">
+                <p className="font-medium text-gray-900">{place.name}</p>
+                <p className="text-sm text-gray-500">방문 {place.visit_count}회</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className={`text-sm font-medium`} style={{ color: STATUS_COLOR[place.status] || STATUS_COLOR.new }}>
                   <span
-                    className="w-3 h-3 rounded-full inline-block"
+                    className="inline-block w-2 h-2 rounded-full mr-1"
                     style={{ backgroundColor: STATUS_COLOR[place.status] || STATUS_COLOR.new }}
                   />
-                  <span className="text-sm text-gray-500">
-                    {STATUS_LABEL[place.status] || place.status}
-                  </span>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+                  {STATUS_LABEL[place.status] || place.status}
+                </span>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
 
-      <TabBar />
+      <BottomTabBar />
     </div>
   )
 }
