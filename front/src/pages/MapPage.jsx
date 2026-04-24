@@ -9,8 +9,8 @@ const MAP_CENTER = { lat: 37.5665, lng: 126.9780 }
 const STATUS_COLOR = {
   new: '#9CA3AF',
   regular: '#3B82F6',
-  best: '#EAB308',
-  old: '#A855F7',
+  best: '#EC4899',
+  old: '#9CA3AF',
 }
 
 const STATUS_LABEL = {
@@ -57,17 +57,17 @@ export default function MapPage() {
   const hasPlaces = places.length > 0
 
   return (
-    <div className="min-h-screen bg-white pb-20">
+    <div className="min-h-screen bg-white pb-24">
       {/* Header */}
-      <div className="px-4 py-4">
+      <div className="px-5 pt-5 pb-3">
         <h1 className="text-2xl font-bold text-gray-900">cluster</h1>
       </div>
 
-      {error && <p className="text-red-500 text-sm px-4 mb-2">{error}</p>}
+      {error && <p className="text-red-500 text-sm px-5 mb-2">{error}</p>}
 
       {/* Map */}
-      <div className="px-4 mb-6">
-        <div className="relative rounded-2xl overflow-hidden border border-gray-200" style={{ height: '192px' }}>
+      <div className="px-4 mb-4">
+        <div className="relative rounded-2xl overflow-hidden" style={{ height: '240px' }}>
           {!isLoaded ? (
             <div className="w-full h-full bg-gray-100 flex items-center justify-center">
               <p className="text-gray-400 text-sm">지도 로딩 중...</p>
@@ -89,15 +89,12 @@ export default function MapPage() {
               ))}
             </GoogleMap>
           )}
-          {hasPlaces && (
-            <div className="absolute bottom-4 right-4 w-4 h-4 bg-[#FF4B8B] rounded-full animate-pulse" />
-          )}
         </div>
       </div>
 
-      {/* Content */}
+      {/* Place List */}
       {loading ? (
-        <p className="text-gray-400 text-sm px-4">불러오는 중...</p>
+        <p className="text-gray-400 text-sm px-5">불러오는 중...</p>
       ) : !hasPlaces ? (
         <div className="flex flex-col items-center justify-center py-16">
           <p className="text-gray-500 mb-2">등록된 장소가 없습니다.</p>
@@ -109,25 +106,29 @@ export default function MapPage() {
           </button>
         </div>
       ) : (
-        <div className="flex flex-col items-center space-y-3">
+        <div className="px-4 flex flex-col gap-3">
           {places.map(place => (
             <button
               key={place.id}
               onClick={() => navigate(`/place/${place.id}`)}
-              className="bg-white rounded-xl border border-gray-200 flex flex-col justify-between shrink-0"
-              style={{ width: '333px', height: '218px', marginLeft: '30px', marginRight: '30px', padding: '16px', gap: '10px' }}
+              className="w-full bg-white rounded-2xl border border-gray-200 px-5 py-4 flex items-center justify-between text-left"
             >
-              <div className="flex items-center justify-between" style={{ gap: '10px' }}>
-                <p className="font-medium text-gray-900 text-left">{place.name}</p>
-                <span className="text-sm font-medium shrink-0" style={{ color: STATUS_COLOR[place.status] || STATUS_COLOR.new }}>
-                  <span
-                    className="inline-block w-2 h-2 rounded-full mr-1"
-                    style={{ backgroundColor: STATUS_COLOR[place.status] || STATUS_COLOR.new }}
-                  />
+              <div className="flex flex-col gap-1">
+                <p className="font-semibold text-gray-900 text-sm">{place.name}</p>
+                <p className="text-xs text-gray-400">방문 {place.visit_count}회</p>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span
+                  className="w-2 h-2 rounded-full"
+                  style={{ backgroundColor: STATUS_COLOR[place.status] || STATUS_COLOR.new }}
+                />
+                <span
+                  className="text-sm font-medium"
+                  style={{ color: STATUS_COLOR[place.status] || STATUS_COLOR.new }}
+                >
                   {STATUS_LABEL[place.status] || place.status}
                 </span>
               </div>
-              <p className="text-sm text-gray-500 text-left">방문 {place.visit_count}회</p>
             </button>
           ))}
         </div>
