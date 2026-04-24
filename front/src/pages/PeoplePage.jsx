@@ -26,16 +26,6 @@ function Avatar({ name, image, size = 52, status = null }) {
   )
 }
 
-// 최대 6명 지원 클러스터 배치 좌표
-const POSITION_COORDS = [
-  { left: '31%', top: '31%' },
-  { left: '72%', top: '14%' },
-  { left: '12%', top: '54%' },
-  { left: '74%', top: '54%' },
-  { left: '23%', top: '76%' },
-  { left: '69%', top: '83%' },
-]
-
 const DECORATIVE_DOTS = [
   { left: '11%', top: '51%', color: '#4C6FFF', size: 6 },
   { left: '84%', top: '27%', color: '#FBBF24', size: 7 },
@@ -45,49 +35,75 @@ const DECORATIVE_DOTS = [
   { left: '27%', top: '26%', color: '#3B82F6', size: 4 },
 ]
 
+// 인원 수에 상관없이 전체를 겹치지 않게 랜덤 배치
+// 섹터 분할 방식: 원을 N등분 후 각 섹터 안에서 랜덤 jitter 적용
+function generatePositions(count, containerW, containerH) {
+  const cx = containerW / 2
+  const cy = containerH * 0.47
+  const minR = 95
+  const maxR = 150
+
+  return Array.from({ length: count }, (_, i) => {
+    const sectorAngle = (2 * Math.PI) / count
+    const baseAngle = i * sectorAngle - Math.PI / 2 // 12시 방향부터 시작
+    const jitter = (Math.random() - 0.5) * sectorAngle * 0.65
+    const angle = baseAngle + jitter
+    const radius = minR + Math.random() * (maxR - minR)
+    const x = cx + radius * Math.cos(angle)
+    const y = cy + radius * Math.sin(angle)
+    return {
+      left: `${(x / containerW) * 100}%`,
+      top: `${(y / containerH) * 100}%`,
+    }
+  })
+}
+
 function ClusterView({ people, currentUser }) {
   const navigate = useNavigate()
 
+  const containerW = 393
+  const containerH = 460
+
   const getAvatarSize = (status) => {
-    if (status === 'best') return 64
-    if (status === 'old') return 40
-    return 52
+    if (status === 'best') return 72
+    if (status === 'old') return 36
+    return 52  // new / normal
   }
 
-  // 페이지 로드마다 순서를 섞어서 무작위 배치
-  const visiblePeople = useMemo(() => {
-    const shuffled = [...people].sort(() => Math.random() - 0.5)
-    return shuffled.slice(0, 6)
-  }, [people])
+  // people 목록이 바뀔 때만 좌표 재생성 (전원 표시)
+  const positions = useMemo(
+    () => generatePositions(people.length, containerW, containerH),
+    [people]
+  )
 
   return (
-    <div className="relative w-full mx-auto" style={{ maxWidth: '400px', height: '420px' }}>
+    <div className="relative w-full" style={{ height: `${containerH}px` }}>
       <svg
         className="absolute inset-0 w-full h-full pointer-events-none"
-        viewBox="0 0 400 380"
+        viewBox={`0 0 ${containerW} ${containerH}`}
         preserveAspectRatio="none"
       >
-        <circle cx="200" cy="180" r="100" fill="none" stroke="#E5E7EB" strokeWidth="1.2" />
-        <circle cx="200" cy="180" r="155" fill="none" stroke="#E5E7EB" strokeWidth="1.2" />
+        <circle cx={containerW / 2} cy={containerH * 0.47} r="100" fill="none" stroke="#E5E7EB" strokeWidth="1.2" />
+        <circle cx={containerW / 2} cy={containerH * 0.47} r="155" fill="none" stroke="#E5E7EB" strokeWidth="1.2" />
       </svg>
 
       {/* 중앙 — 로그인 사용자 */}
-      <button
+      <div
         className="absolute"
         style={{ left: '50%', top: '47%', transform: 'translate(-50%, -50%)' }}
       >
         <Avatar name={currentUser?.nick_name || currentUser?.email || '나'} image={null} size={60} />
-      </button>
+      </div>
 
-      {/* 사람 노드 */}
-      {visiblePeople.map((person, idx) => (
+      {/* 사람 노드 — 전원 표시 */}
+      {people.map((person, idx) => (
         <button
           key={person.id}
           onClick={() => navigate(`/people/${person.id}`)}
           className="absolute flex flex-col items-center gap-1 hover:scale-105 transition-transform"
           style={{
-            left: POSITION_COORDS[idx].left,
-            top: POSITION_COORDS[idx].top,
+            left: positions[idx]?.left,
+            top: positions[idx]?.top,
             transform: 'translate(-50%, -50%)',
           }}
         >
@@ -137,7 +153,6 @@ export default function PeoplePage() {
     getPeopleList()
       .then((data) => setPeople(data.data))
       .catch((err) => {
-        // 404는 빈 목록 — 에러가 아니라 빈 상태로 처리
         if (err.response?.status !== 404) {
           setError('목록을 불러오는 데 실패했습니다.')
         }
@@ -166,9 +181,7 @@ export default function PeoplePage() {
           </button>
         </div>
       ) : (
-        <div className="px-6 py-8">
-          <ClusterView people={people} currentUser={user} />
-        </div>
+        <ClusterView people={people} currentUser={user} />
       )}
 
       <BottomTabBar />
