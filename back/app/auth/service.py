@@ -21,10 +21,14 @@ def register_user(db : Session, user_data : UserCreate):
         age=user_data.age,
         gender=user_data.gender
     )
+    try :
+        db.add(new_user)
+        db.commit()
+        db.refresh(new_user)
+    except Exception :
+        db.rollback()
+        raise
     token = create_access_token(data={"sub": new_user.email})
-    db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
     return new_user, token
 
 def login_user(db : Session, form_data: OAuth2PasswordRequestForm):

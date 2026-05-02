@@ -9,6 +9,7 @@ from config.database import engine, Base
 import uvicorn
 import os
 from fastapi.middleware.cors import CORSMiddleware
+import config.cloudinary
 
 Base.metadata.create_all(bind=engine)
 
@@ -37,7 +38,6 @@ origins = [
 
 def create_app():
     app = FastAPI()
-
     app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,

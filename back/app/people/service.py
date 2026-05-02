@@ -7,7 +7,8 @@ from auth.token import get_current_user
 from people.schema import PersonCreate
 from activity.model import ActivityLog, log_people
 from config.config import settings
-
+import asyncio
+import cloudinary.uploader
 
 async def create_people(
     db: Session,
@@ -20,21 +21,13 @@ async def create_people(
 ):
     photo_url = None
     if photo:
-        import cloudinary
-        import cloudinary.uploader
-        import io
-        from urllib.parse import urlparse
-        parsed = urlparse(settings.CLOUDINARY_URL)
-        cloudinary.config(
-            cloud_name=parsed.hostname,
-            api_key=parsed.username,
-            api_secret=parsed.password,
-        )
         photo_bytes = await photo.read()
-        result = cloudinary.uploader.upload(
+        loop = asyncio.get_running_loop()
+        import io
+        result = await loop.run_in_executor(None,lambda : cloudinary.uploader.upload(
             io.BytesIO(photo_bytes),
             folder="cluster/people"
-        )
+        ))
         photo_url = result["secure_url"]
 
     new_people = People(
