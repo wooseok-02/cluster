@@ -347,7 +347,7 @@ export default function ScheduleDetailPage() {
                 {schedule.photos.map((photo) => (
                   <img
                     key={photo.id}
-                    src={`${import.meta.env.VITE_API_URL}${photo.photo_url}`}
+                    src={photo.photo_url}
                     alt="일정 사진"
                     className="w-full aspect-square object-cover rounded"
                   />
