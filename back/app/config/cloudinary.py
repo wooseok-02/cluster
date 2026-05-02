@@ -1,10 +1,8 @@
 import cloudinary
-import cloudinary.uploader
-import io
 from urllib.parse import urlparse
-from config import settings
+from config import Settings
 
-parsed = urlparse(settings.CLOUDINARY_URL)
+parsed = urlparse(Settings.CLOUDINARY_URL)
 cloudinary.config(
     cloud_name=parsed.hostname,
     api_key=parsed.username,

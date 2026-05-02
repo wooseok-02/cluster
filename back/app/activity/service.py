@@ -241,6 +241,8 @@ def confirm_schedule(
         db.commit()
         db.refresh(activity_log)
 
+    db.refresh(activity_log)
+    _ = activity_log.photos
     return activity_log
 
 

@@ -6,10 +6,10 @@ from place.model import Place
 from people.model import People
 from auth.model import User
 from schedule.schema import ScheduleCreate, ScheduleUpdate
-from activity.model import ActivityLog
+from activity.model import ActivityLog, Photo
 from sqlalchemy import extract
 
-
+# 일정 미리 생성 로직
 def create_schedule(db: Session, schedule_data: ScheduleCreate, current_user: User):
     # date 기준으로 status 자동 결정
     today = date.today()
@@ -114,7 +114,7 @@ def get_schedule(db: Session, schedule_id: int, current_user: User):
             ActivityLog.place_id == schedule.place_id,
         ).first()
         if activity:
-            photos = activity.photos
+            photos = db.query(Photo).filter(Photo.log_id == activity.log_id).all()
 
     schedule.photos = photos
     return schedule

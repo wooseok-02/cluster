@@ -1001,7 +1001,7 @@ back/
             WHEEL
             licenses/
               LICENSE.txt
-          cloudinary/
+          /
             __init__.py
             __pycache__/
               __init__.cpython-312.pyc
@@ -1076,7 +1076,7 @@ back/
             search.py
             search_folders.py
             static/
-              cloudinary/
+              /
                 html/
                   cloudinary_cors.html
                 js/
