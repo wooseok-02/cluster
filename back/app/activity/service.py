@@ -216,21 +216,11 @@ def confirm_schedule(
     db.commit()
     db.refresh(activity_log)
 
-    # 사진이 함께 전달된 경우 디스크에 저장하고 Photo 레코드 생성
-    # photo_url 형식: /static/photos/{uuid}.jpg
-    # 나중에 S3로 교체할 때는 이 블록의 저장 경로와 photo_url 값만 바꾸면 됨
+    # 사진이 함께 전달된 경우 cloudinary에 저장하고 Photo 레코드 생성
     if photo_bytes_list:
-        import cloudinary
+        #uploader는 외부 모듈이라 임포트 해야 함
         import cloudinary.uploader
         import io
-        from urllib.parse import urlparse
-        parsed = urlparse(settings.CLOUDINARY_URL)
-        cloudinary.config(
-            cloud_name=parsed.hostname,
-            api_key=parsed.username,
-            api_secret=parsed.password,
-        )
-
         for photo_bytes in photo_bytes_list:
             upload_result = cloudinary.uploader.upload(
                 io.BytesIO(photo_bytes),

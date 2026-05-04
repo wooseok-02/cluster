@@ -22,6 +22,8 @@ async def create_people(
     photo_url = None
     if photo:
         photo_bytes = await photo.read()
+
+        #cloudinary IO 자체가 비동기이기 때문에, 별도 스레드 풀에 던진다.
         loop = asyncio.get_running_loop()
         import io
         result = await loop.run_in_executor(None,lambda : cloudinary.uploader.upload(

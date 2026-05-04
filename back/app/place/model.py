@@ -9,7 +9,7 @@ class Place(Base):
     name = Column(String, index=True)
     longitude = Column(Float)
     latitude = Column(Float)
-    visit_count = Column(Integer, default=1)
+    visit_count = Column(Integer, default=0)
     status = Column(String, default="new")
     user_id = Column(Integer, ForeignKey("USER.id"))
     category_name = Column(String)

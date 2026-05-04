@@ -38,7 +38,7 @@ class ActivityData(BaseModel):
     memo: str
     place: Optional[PlaceInfo] = None
     people: List[PersonInfo]
-    photos: List[PhotoInfo]
+    photos: List[PhotoInfo] = None
 
     model_config = ConfigDict(from_attributes=True)
 

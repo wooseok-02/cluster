@@ -71,26 +71,6 @@ def create_schedule(db: Session, schedule_data: ScheduleCreate, current_user: Us
     db.commit()
     db.refresh(new_schedule)
 
-    # 과거 날짜 자동 Completed: 사람/장소 count 업데이트 (같은 날 중복 방지)
-    if schedule_status == "Completed":
-        activity_date = schedule_data.date
-        # 같은 날 이미 Completed된 다른 일정에서 이미 카운트된 사람/장소 수집
-        other_completed = db.query(Schedule).filter(
-            Schedule.user_id == current_user.id,
-            Schedule.status == "Completed",
-            Schedule.id != new_schedule.id,
-        ).all()
-        other_same_date = [s for s in other_completed if s.start_time.date() == activity_date]
-        counted_people_ids = {p.id for s in other_same_date for p in s.people}
-        counted_place_ids = {s.place_id for s in other_same_date if s.place_id}
-
-        for person in people_list:
-            if person.id not in counted_people_ids:
-                person.count += 1
-        if place and place.id not in counted_place_ids:
-            place.visit_count += 1
-        db.commit()
-
     return new_schedule
 
 
