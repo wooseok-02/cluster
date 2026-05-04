@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { getSchedule, confirmSchedule, updateSchedule } from '../api/schedule'
+import { verifyPhoto } from '../api/activity'
 import { getPeopleList } from '../api/people'
 import { getPlaceList } from '../api/place'
 
@@ -32,6 +33,9 @@ export default function ScheduleDetailPage() {
   const [confirmPhotos, setConfirmPhotos] = useState([])
   const [confirming, setConfirming] = useState(false)
   const [confirmError, setConfirmError] = useState('')
+
+  // 사진 검증 팝업 상태
+  const [verifyPopup, setVerifyPopup] = useState(null) // { photo_date, photo_place_name, schedule_date, schedule_place_name }
 
   // 수정 관련 상태
   const [editing, setEditing] = useState(false)
@@ -112,7 +116,7 @@ export default function ScheduleDetailPage() {
     }
   }
 
-  const handleConfirm = async () => {
+  const doConfirm = async () => {
     setConfirmError('')
     setConfirming(true)
     try {
@@ -122,6 +126,27 @@ export default function ScheduleDetailPage() {
       setConfirmError(err.response?.data?.detail || '확정에 실패했습니다.')
     } finally {
       setConfirming(false)
+    }
+  }
+
+  const handleConfirm = async () => {
+    // 사진이 있으면 첫 번째 사진으로 검증 먼저 수행
+    if (confirmPhotos.length > 0) {
+      setConfirming(true)
+      try {
+        const result = await verifyPhoto(id, confirmPhotos[0])
+        if (result.match) {
+          await doConfirm()
+        } else {
+          setVerifyPopup(result)
+          setConfirming(false)
+        }
+      } catch {
+        // 검증 API 실패 시 그냥 확정 진행
+        await doConfirm()
+      }
+    } else {
+      await doConfirm()
     }
   }
 
@@ -140,6 +165,33 @@ export default function ScheduleDetailPage() {
 
   return (
     <div className="p-4 max-w-lg mx-auto pb-8">
+      {/* 사진 검증 불일치 팝업 */}
+      {verifyPopup && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 mx-4 w-full max-w-sm space-y-4">
+            <p className="font-semibold text-sm">사진 정보가 일정과 다릅니다.</p>
+            <div className="text-sm space-y-1 text-gray-600">
+              <p>사진: {verifyPopup.photo_date ?? '-'} / {verifyPopup.photo_place_name ?? '-'}</p>
+              <p>일정: {verifyPopup.schedule_date ?? '-'} / {verifyPopup.schedule_place_name ?? '-'}</p>
+            </div>
+            <p className="text-sm font-medium">이 일정이 맞나요?</p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => { setVerifyPopup(null) }}
+                className="flex-1 border py-2 rounded text-sm text-gray-600"
+              >
+                아니다
+              </button>
+              <button
+                onClick={() => { setVerifyPopup(null); doConfirm() }}
+                className="flex-1 bg-green-500 text-white py-2 rounded text-sm"
+              >
+                맞다
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <button onClick={() => navigate('/calendar')} className="text-gray-500 text-sm mb-4 block">
         ← 뒤로
       </button>

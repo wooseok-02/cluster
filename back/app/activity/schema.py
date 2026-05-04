@@ -75,3 +75,14 @@ class PhotoUploadResponse(BaseModel):
     message: str
     data: List[PhotoGroupResult]
     skipped_count: int
+
+
+# ── 사진 검증 결과 스키마 ─────────────────────────────────────
+class PhotoVerifyResponse(BaseModel):
+    match: bool
+    date_match: bool
+    location_match: bool
+    photo_date: Optional[date] = None
+    photo_place_name: Optional[str] = None
+    schedule_date: Optional[date] = None
+    schedule_place_name: Optional[str] = None

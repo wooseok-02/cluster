@@ -16,3 +16,11 @@ export const confirmSchedule = async (scheduleId, memo = null) => {
   const response = await axiosInstance.post(`/activity/confirm/${scheduleId}`, formData)
   return response.data
 }
+
+// 사진 EXIF와 일정 날짜/장소 비교 검증
+export const verifyPhoto = async (scheduleId, file) => {
+  const formData = new FormData()
+  formData.append('photo', file)
+  const response = await axiosInstance.post(`/activity/verify-photo/${scheduleId}`, formData)
+  return response.data
+}

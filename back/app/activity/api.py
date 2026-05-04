@@ -2,8 +2,8 @@ from fastapi import APIRouter, Depends, File, Form, UploadFile, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Optional
 
-from activity.schema import ActivityRead, ConfirmRequest, PhotoUploadResponse
-from activity.service import confirm_schedule, get_activity, upload_photos
+from activity.schema import ActivityRead, ConfirmRequest, PhotoUploadResponse, PhotoVerifyResponse
+from activity.service import confirm_schedule, get_activity, upload_photos, verify_photo
 from config.database import get_db
 from auth.token import get_current_user
 
@@ -54,6 +54,17 @@ async def confirm_schedule_route(
         "message": "일정이 확정되고 활동 기록이 생성되었습니다",
         "data": activity_log
     }
+
+
+@router.post("/verify-photo/{schedule_id}", response_model=PhotoVerifyResponse)
+async def verify_photo_route(
+    schedule_id: int,
+    photo: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    photo_bytes = await photo.read()
+    return verify_photo(db, schedule_id, photo_bytes, current_user)
 
 
 @router.get("/{log_id}", response_model=ActivityRead)

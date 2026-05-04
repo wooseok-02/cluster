@@ -236,20 +236,36 @@ def confirm_schedule(
     db.commit()
     db.refresh(activity_log)
 
-    # 사진 GPS 기반 장소 재매칭 — 첫 번째 사진 EXIF와 일정 장소 거리 200m 이상이면 가장 가까운 장소로 교체
-    if photo_bytes_list and schedule.place_id:
+    # 사진 EXIF 기반 날짜·장소 보정 (Cloudinary 업로드 전)
+    if photo_bytes_list:
         try:
-            photo_lat, photo_lon, _ = _extract_info_from_exif(photo_bytes_list[0])
-            sched_place = db.query(Place).filter(Place.id == schedule.place_id).first()
-            if sched_place:
-                dist = _haversine(photo_lat, photo_lon, sched_place.latitude, sched_place.longitude)
-                if dist > 200:
-                    all_places = db.query(Place).filter(Place.user_id == current_user.id).all()
-                    if all_places:
-                        closest = min(all_places, key=lambda p: _haversine(photo_lat, photo_lon, p.latitude, p.longitude))
-                        schedule.place_id = closest.id
-                        activity_log.place_id = closest.id
-                        db.commit()
+            photo_lat, photo_lon, photo_dt = _extract_info_from_exif(photo_bytes_list[0])
+            photo_date = photo_dt.date()
+            needs_commit = False
+
+            # 날짜가 다르면 schedule.start_time 날짜와 activity_log.date 업데이트
+            if photo_date != schedule.start_time.date():
+                from datetime import datetime as dt_cls
+                new_start = dt_cls.combine(photo_date, schedule.start_time.time())
+                schedule.start_time = new_start
+                activity_log.date = photo_date
+                needs_commit = True
+
+            # GPS 200m 초과면 가장 가까운 장소로 교체
+            if schedule.place_id:
+                sched_place = db.query(Place).filter(Place.id == schedule.place_id).first()
+                if sched_place:
+                    dist = _haversine(photo_lat, photo_lon, sched_place.latitude, sched_place.longitude)
+                    if dist > 200:
+                        all_places = db.query(Place).filter(Place.user_id == current_user.id).all()
+                        if all_places:
+                            closest = min(all_places, key=lambda p: _haversine(photo_lat, photo_lon, p.latitude, p.longitude))
+                            schedule.place_id = closest.id
+                            activity_log.place_id = closest.id
+                            needs_commit = True
+
+            if needs_commit:
+                db.commit()
         except Exception:
             pass
 
@@ -271,6 +287,68 @@ def confirm_schedule(
     db.refresh(activity_log)
     _ = activity_log.photos
     return activity_log
+
+
+# ── 사진 검증 ─────────────────────────────────────────────────
+def verify_photo(db: Session, schedule_id: int, photo_bytes: bytes, current_user: User) -> dict:
+    """사진 EXIF와 일정의 날짜/장소를 비교해 매칭 여부 반환"""
+    schedule = db.query(Schedule).filter(
+        Schedule.id == schedule_id,
+        Schedule.user_id == current_user.id
+    ).first()
+    if not schedule:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Schedule not found")
+
+    schedule_date = schedule.start_time.date()
+    schedule_place_name = None
+    sched_place = None
+    if schedule.place_id:
+        sched_place = db.query(Place).filter(Place.id == schedule.place_id).first()
+        if sched_place:
+            schedule_place_name = sched_place.name
+
+    # EXIF 추출 실패 시 match=false 반환 (예외 던지지 않음)
+    try:
+        photo_lat, photo_lon, photo_dt = _extract_info_from_exif(photo_bytes)
+        photo_date = photo_dt.date()
+    except Exception:
+        return {
+            "match": False,
+            "date_match": False,
+            "location_match": False,
+            "photo_date": None,
+            "photo_place_name": None,
+            "schedule_date": schedule_date,
+            "schedule_place_name": schedule_place_name,
+        }
+
+    date_match = photo_date == schedule_date
+
+    # 장소 없는 일정이면 location_match=False
+    location_match = False
+    photo_place_name = None
+    if sched_place:
+        dist = _haversine(photo_lat, photo_lon, sched_place.latitude, sched_place.longitude)
+        location_match = dist <= 200
+        if location_match:
+            photo_place_name = sched_place.name
+        else:
+            # 200m 초과 시 가장 가까운 등록 장소 이름 표시
+            all_places = db.query(Place).filter(Place.user_id == current_user.id).all()
+            if all_places:
+                closest = min(all_places, key=lambda p: _haversine(photo_lat, photo_lon, p.latitude, p.longitude))
+                if _haversine(photo_lat, photo_lon, closest.latitude, closest.longitude) <= 200:
+                    photo_place_name = closest.name
+
+    return {
+        "match": date_match and location_match,
+        "date_match": date_match,
+        "location_match": location_match,
+        "photo_date": photo_date,
+        "photo_place_name": photo_place_name,
+        "schedule_date": schedule_date,
+        "schedule_place_name": schedule_place_name,
+    }
 
 
 # ── Activity 조회 ─────────────────────────────────────────────
