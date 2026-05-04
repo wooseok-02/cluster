@@ -29,6 +29,7 @@ def _haversine(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
 
 
 # ── 사진 그룹화 ───────────────────────────────────────────────
+# 그룹화된 사진 리스트에서 하나씩 꺼냄
 def _group_photos(photo_data_list: list[dict]) -> list[list[dict]]:
     """같은 날짜 + GPS 반경 200m 이내 사진을 같은 그룹으로 묶음"""
     groups = []
@@ -52,7 +53,7 @@ def _group_photos(photo_data_list: list[dict]) -> list[list[dict]]:
 
 # ── 그룹별 매칭 ───────────────────────────────────────────────
 def _match_group(db: Session, group: list[dict], current_user) -> dict:
-    """그룹 대표 좌표·날짜로 Schedule → Place → none 순서로 매칭 시도"""
+    """그룹 대표 좌표·날짜로 Schedule 매칭 시도 (날짜 일치 + GPS 200m 기준)"""
     rep = group[0]
     rep_date = rep["datetime"].date()
     rep_lat = rep["latitude"]
@@ -69,22 +70,33 @@ def _match_group(db: Session, group: list[dict], current_user) -> dict:
         "place_id": None,
         "place_name": None,
         "people": None,
+        "candidates": [],
     }
 
-    # Step 1: Schedule 매칭 (같은 날짜 + GPS 반경 200m)
+    # 같은 날짜의 Planned Schedule 전체 조회
     schedules = db.query(Schedule).filter(
         Schedule.user_id == current_user.id,
         Schedule.status == "Planned"
     ).all()
+    same_date = [s for s in schedules if s.start_time.date() == rep_date]
 
-    for schedule in schedules:
-        if schedule.start_time.date() != rep_date or not schedule.place_id:
+    if not same_date:
+        # none: 같은 날짜 Schedule 없음 — GPS 200m 이내 등록 장소가 있으면 place_id/place_name 포함
+        places = db.query(Place).filter(Place.user_id == current_user.id).all()
+        for place in places:
+            if _haversine(rep_lat, rep_lon, place.latitude, place.longitude) <= 200:
+                return {**base, "match_type": "none", "place_id": place.id, "place_name": place.name}
+        return {**base, "match_type": "none"}
+
+    # exact: 날짜 일치 + GPS 200m 이내
+    for schedule in same_date:
+        if not schedule.place_id:
             continue
         place = db.query(Place).filter(Place.id == schedule.place_id).first()
         if place and _haversine(rep_lat, rep_lon, place.latitude, place.longitude) <= 200:
             return {
                 **base,
-                "match_type": "schedule",
+                "match_type": "exact",
                 "schedule_id": schedule.id,
                 "schedule_title": schedule.title,
                 "place_id": place.id,
@@ -92,19 +104,21 @@ def _match_group(db: Session, group: list[dict], current_user) -> dict:
                 "people": [{"id": p.id, "name": p.name} for p in schedule.people],
             }
 
-    # Step 2: Place 매칭 (등록된 장소만 있는 경우)
-    places = db.query(Place).filter(Place.user_id == current_user.id).all()
-    for place in places:
-        if _haversine(rep_lat, rep_lon, place.latitude, place.longitude) <= 200:
-            return {
-                **base,
-                "match_type": "place",
-                "place_id": place.id,
-                "place_name": place.name,
-            }
+    # date_only: 같은 날짜 있지만 GPS 200m 초과 → candidates 반환
+    candidates = []
+    for s in same_date:
+        place_name = None
+        if s.place_id:
+            p = db.query(Place).filter(Place.id == s.place_id).first()
+            place_name = p.name if p else None
+        candidates.append({
+            "schedule_id": s.id,
+            "title": s.title,
+            "place_id": s.place_id,
+            "place_name": place_name,
+        })
 
-    # Step 3: 매칭 없음
-    return {**base, "match_type": "none"}
+    return {**base, "match_type": "date_only", "candidates": candidates}
 
 
 # ── 사진 업로드 메인 함수 ─────────────────────────────────────
@@ -113,6 +127,7 @@ async def upload_photos(db: Session, photos: list, current_user: User) -> dict:
     photo_data_list = []
     skipped_count = 0
 
+    # photo 리스트에서 하나씩 꺼내서 -> 위치와 시간 추출
     for photo in photos:
         try:
             photo_bytes = await photo.read()
@@ -125,6 +140,7 @@ async def upload_photos(db: Session, photos: list, current_user: User) -> dict:
         except HTTPException:
             skipped_count += 1
 
+    #사진이 없으면 에러 반환
     if not photo_data_list:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -153,18 +169,22 @@ def confirm_schedule(
         Schedule.id == schedule_id,
         Schedule.user_id == current_user.id
     ).first()
+    
+    #일치하는 스케줄이 있는 지 확인 - 1번
     if not schedule:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Schedule not found"
         )
 
+    # 해당 스케쥴이 이미 확정 상태일 경우 에러 처리
     if schedule.status == "Completed":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="이미 완료된 일정입니다"
         )
 
+    #미래 일정일 경우 임의 complete 막기
     if schedule.start_time.date() > date.today():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -215,6 +235,23 @@ def confirm_schedule(
     schedule.status = "Completed"
     db.commit()
     db.refresh(activity_log)
+
+    # 사진 GPS 기반 장소 재매칭 — 첫 번째 사진 EXIF와 일정 장소 거리 200m 이상이면 가장 가까운 장소로 교체
+    if photo_bytes_list and schedule.place_id:
+        try:
+            photo_lat, photo_lon, _ = _extract_info_from_exif(photo_bytes_list[0])
+            sched_place = db.query(Place).filter(Place.id == schedule.place_id).first()
+            if sched_place:
+                dist = _haversine(photo_lat, photo_lon, sched_place.latitude, sched_place.longitude)
+                if dist > 200:
+                    all_places = db.query(Place).filter(Place.user_id == current_user.id).all()
+                    if all_places:
+                        closest = min(all_places, key=lambda p: _haversine(photo_lat, photo_lon, p.latitude, p.longitude))
+                        schedule.place_id = closest.id
+                        activity_log.place_id = closest.id
+                        db.commit()
+        except Exception:
+            pass
 
     # 사진이 함께 전달된 경우 cloudinary에 저장하고 Photo 레코드 생성
     if photo_bytes_list:
