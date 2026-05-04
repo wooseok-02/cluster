@@ -58,7 +58,7 @@ export default function PhotoUploadPage() {
     setConfirmingGroup(groupIndex)
     try {
       const memo = memos[groupIndex] || null
-      await confirmSchedule(scheduleId, memo)
+      await confirmSchedule(scheduleId, memo, files)
       setConfirmedGroups((prev) => new Set([...prev, groupIndex]))
     } catch (err) {
       const detail = err.response?.data?.detail
