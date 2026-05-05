@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+deepface
+tensorflow
+pillow
+numpy
