@@ -23,6 +23,7 @@ class PlaceData(BaseModel):
     visit_count: int
     status: str
     logs: list[PlaceLog] = []  # 목록 조회 시엔 빈 배열, 상세 조회 시엔 채워짐
+    distance: Optional[float] = None  # lat/lon 필터링 시 거리(m) 포함, 없으면 None
 
 
 class PlaceRead(BaseModel):

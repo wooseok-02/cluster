@@ -1,5 +1,6 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
+from typing import Optional
 from place.schema import PlaceCreate, PlaceRead, PlaceKakaoResponse, PlaceListRead
 from place.service import get_place, kakao_place_search, create_place_from_kakao, get_placeList
 from config.database import get_db
@@ -47,10 +48,15 @@ def load_place(place_id: int, db: Session = Depends(get_db), current_user=Depend
     }
 
 @router.get("/load/placeList", response_model=PlaceListRead)
-def load_placeList(db : Session = Depends(get_db), current_user = Depends(get_current_user)):
-    placeList = get_placeList(db, current_user)
+def load_placeList(
+    lat: Optional[float] = Query(None),
+    lon: Optional[float] = Query(None),
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    placeList = get_placeList(db, current_user, lat=lat, lon=lon)
     return {
-        "status" : 200,
-        "message" : "장소 리스트가 성공적으로 반환되었습니다.",
-        "data" : placeList
+        "status": 200,
+        "message": "장소 리스트가 성공적으로 반환되었습니다.",
+        "data": placeList
     }

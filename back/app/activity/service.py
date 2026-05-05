@@ -193,9 +193,22 @@ def confirm_schedule(
 
     activity_date = schedule.start_time.date()
 
+    # 사진 GPS 기반 장소 결정 (커밋 전)
+    if photo_bytes_list:
+        photo_lat, photo_lon, _ = _extract_info_from_exif(photo_bytes_list[0])
+        all_places = db.query(Place).filter(Place.user_id == current_user.id).all()
+        matched_place = next(
+            (p for p in all_places if _haversine(photo_lat, photo_lon, p.latitude, p.longitude) <= 200),
+            None
+        )
+        final_place_id = matched_place.id if matched_place else None
+        schedule.place_id = final_place_id
+    else:
+        final_place_id = schedule.place_id
+
     activity_log = ActivityLog(
         user_id=current_user.id,
-        place_id=schedule.place_id,
+        place_id=final_place_id,
         date=activity_date,
         time=schedule.start_time.time(),
         memo=memo if memo is not None else schedule.memo
@@ -226,48 +239,15 @@ def confirm_schedule(
             person.count += 1
 
     # Place visit_count 중복 방지 — 같은 날 이미 완료된 다른 일정에 같은 장소 있으면 증가 안 함
-    if schedule.place_id:
-        place = db.query(Place).filter(Place.id == schedule.place_id).first()
-        if place and schedule.place_id not in counted_place_ids:
+    if final_place_id:
+        place = db.query(Place).filter(Place.id == final_place_id).first()
+        if place and final_place_id not in counted_place_ids:
             place.visit_count += 1
 
     db.add(activity_log)
     schedule.status = "Completed"
     db.commit()
     db.refresh(activity_log)
-
-    # 사진 EXIF 기반 날짜·장소 보정 (Cloudinary 업로드 전)
-    if photo_bytes_list:
-        try:
-            photo_lat, photo_lon, photo_dt = _extract_info_from_exif(photo_bytes_list[0])
-            photo_date = photo_dt.date()
-            needs_commit = False
-
-            # 날짜가 다르면 schedule.start_time 날짜와 activity_log.date 업데이트
-            if photo_date != schedule.start_time.date():
-                from datetime import datetime as dt_cls
-                new_start = dt_cls.combine(photo_date, schedule.start_time.time())
-                schedule.start_time = new_start
-                activity_log.date = photo_date
-                needs_commit = True
-
-            # GPS 200m 초과면 가장 가까운 장소로 교체
-            if schedule.place_id:
-                sched_place = db.query(Place).filter(Place.id == schedule.place_id).first()
-                if sched_place:
-                    dist = _haversine(photo_lat, photo_lon, sched_place.latitude, sched_place.longitude)
-                    if dist > 200:
-                        all_places = db.query(Place).filter(Place.user_id == current_user.id).all()
-                        if all_places:
-                            closest = min(all_places, key=lambda p: _haversine(photo_lat, photo_lon, p.latitude, p.longitude))
-                            schedule.place_id = closest.id
-                            activity_log.place_id = closest.id
-                            needs_commit = True
-
-            if needs_commit:
-                db.commit()
-        except Exception:
-            pass
 
     # 사진이 함께 전달된 경우 cloudinary에 저장하고 Photo 레코드 생성
     if photo_bytes_list:
