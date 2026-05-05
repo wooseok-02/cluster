@@ -8,24 +8,13 @@ from sqlalchemy.orm import Session
 from fastapi import HTTPException, UploadFile, status
 from datetime import date
 from typing import Optional
-import math
 from config.config import settings
 from activity.model import ActivityLog, Photo, log_people
 from schedule.model import Schedule
 from place.model import Place
 from auth.model import User
-from place.service import _extract_info_from_exif
-
-
-# ── Haversine 거리 계산 ───────────────────────────────────────
-def _haversine(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    """두 GPS 좌표 간 거리를 미터 단위로 반환 (Haversine 공식)"""
-    R = 6371000
-    phi1, phi2 = math.radians(lat1), math.radians(lat2)
-    dphi = math.radians(lat2 - lat1)
-    dlambda = math.radians(lon2 - lon1)
-    a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
-    return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+from utils.geo import _haversine
+from utils.exif import _extract_info_from_exif
 
 
 # ── 사진 그룹화 ───────────────────────────────────────────────
