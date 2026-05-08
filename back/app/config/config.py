@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str
     KAKAO_REST_API_KEY: str
     CLOUDINARY_URL: str
+    AI_SERVER_URL: str
     class Config:
         env_file = ".env"
     

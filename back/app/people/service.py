@@ -9,6 +9,7 @@ from activity.model import ActivityLog, log_people
 from config.config import settings
 import asyncio
 import cloudinary.uploader
+import httpx
 
 async def create_people(
     db: Session,
@@ -20,8 +21,17 @@ async def create_people(
     photo: Optional[UploadFile] = None,
 ):
     photo_url = None
+    embedding = None
     if photo:
         photo_bytes = await photo.read()
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(
+                f"{settings.AI_SERVER_URL}/embed",
+                files={"file": ("photo.jpg", photo_bytes, "image/jpeg")}
+            )
+        response.raise_for_status()
+        embedding = response.json()["embedding"]
 
         #cloudinary IO 자체가 비동기이기 때문에, 별도 스레드 풀에 던진다.
         loop = asyncio.get_running_loop()
@@ -38,6 +48,7 @@ async def create_people(
         relation=relation,
         address=address,
         photo_url=photo_url,
+        embedding=embedding,
         user_id=current_user.id
     )
     db.add(new_people)
@@ -86,8 +97,18 @@ async def update_person_photo(db: Session, people_id: int, photo: UploadFile, cu
         api_secret=parsed.password,
     )
     photo_bytes = await photo.read()
+
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        response = await client.post(
+            f"{settings.AI_SERVER_URL}/embed",
+            files={"file": ("photo.jpg", photo_bytes, "image/jpeg")}
+        )
+    response.raise_for_status()
+    embedding = response.json()["embedding"]
+
     result = cloudinary.uploader.upload(io.BytesIO(photo_bytes), folder="cluster/people")
     person.photo_url = result["secure_url"]
+    person.embedding = embedding
     db.commit()
     db.refresh(person)
     return person
