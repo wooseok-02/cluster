@@ -34,8 +34,15 @@ class UserLoginResponse(BaseModel):
 class UserMeResponse(BaseModel):
     status: int
     message: str
-    id : int
-    email : str
-    nick_name : str
-    age : int
-    gender : str
+    id: int
+    email: str
+    nick_name: str
+    age: int
+    gender: str
+
+
+# 프로필 사진 업데이트 응답
+class UserPhotoResponse(BaseModel):
+    status: int
+    message: str
+    photo_url: str

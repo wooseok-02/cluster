@@ -1,7 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
 from sqlalchemy.orm import Session
-from auth.schema import UserCreate, UserRead, UserLogin, UserLoginResponse, UserMeResponse
-from auth.service import register_user, login_user
+from auth.schema import UserCreate, UserRead, UserLogin, UserLoginResponse, UserMeResponse, UserPhotoResponse
+from auth.service import register_user, login_user, update_user_photo
 from config.database import get_db
 from auth.model import User
 from auth.token import get_current_user
@@ -52,4 +52,19 @@ def get_me(current_user: User = Depends(get_current_user)):
         "nick_name": current_user.nick_name,
         "age": current_user.age,
         "gender": current_user.gender,
+    }
+
+
+# 프로필 사진 업로드: 얼굴 임베딩 추출 후 Cloudinary에 저장
+@router.patch("/me/photo", response_model=UserPhotoResponse)
+async def upload_my_photo(
+    photo: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    user = await update_user_photo(db, photo, current_user)
+    return {
+        "status": 200,
+        "message": "프로필 사진이 업데이트되었습니다.",
+        "photo_url": user.photo_url,
     }
