@@ -1,7 +1,6 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, LargeBinary
+from sqlalchemy import Column, Integer, String, ForeignKey, JSON
 from config.database import Base
 from auth.model import User
-from pydantic import json
 
 class People(Base):
     __tablename__ = "PEOPLE"
@@ -13,6 +12,6 @@ class People(Base):
     address = Column(String)
     count = Column(Integer, default=0)
     status = Column(String, default="new")
-    embedding = Column(json)
+    embedding = Column(JSON)
     photo_url = Column(String, nullable=True)
     user_id = Column(Integer, ForeignKey("USER.id"))
