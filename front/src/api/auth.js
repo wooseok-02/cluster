@@ -27,3 +27,10 @@ export const getMe = async () => {
   const response = await axiosInstance.get('/auth/me')
   return response.data
 }
+
+export const updateMyPhoto = async (photoFile) => {
+  const formData = new FormData()
+  formData.append('photo', photoFile)
+  const response = await axiosInstance.patch('/auth/me/photo', formData)
+  return response.data
+}

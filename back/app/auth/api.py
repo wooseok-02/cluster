@@ -52,6 +52,7 @@ def get_me(current_user: User = Depends(get_current_user)):
         "nick_name": current_user.nick_name,
         "age": current_user.age,
         "gender": current_user.gender,
+        "photo_url": current_user.photo_url,
     }
 
 

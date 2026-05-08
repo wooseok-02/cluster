@@ -1,7 +1,8 @@
 // 등록된 사람 목록 페이지 — ClusterView UI로 시각화
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getPeopleList } from '../api/people'
+import { updateMyPhoto } from '../api/auth'
 import { useAuth } from '../context/AuthContext'
 import StatusBadge from '../components/StatusBadge'
 import BottomTabBar from '../components/BottomTabBar'
@@ -58,7 +59,7 @@ function generatePositions(count, containerW, containerH) {
   })
 }
 
-function ClusterView({ people, currentUser }) {
+function ClusterView({ people, currentUser, myPhotoUrl, onPhotoClick, uploading }) {
   const navigate = useNavigate()
 
   const containerW = 393
@@ -87,13 +88,28 @@ function ClusterView({ people, currentUser }) {
         <circle cx={containerW / 2} cy={containerH * 0.47} r="155" fill="none" stroke="#E5E7EB" strokeWidth="1.2" />
       </svg>
 
-      {/* 중앙 — 로그인 사용자 */}
-      <div
+      {/* 중앙 — 로그인 사용자 (클릭 시 프로필 사진 업로드) */}
+      <button
+        onClick={onPhotoClick}
+        disabled={uploading}
         className="absolute"
         style={{ left: '50%', top: '47%', transform: 'translate(-50%, -50%)' }}
       >
-        <Avatar name={currentUser?.nick_name || currentUser?.email || '나'} image={null} size={60} />
-      </div>
+        <div className="relative">
+          <Avatar name={currentUser?.nick_name || currentUser?.email || '나'} image={myPhotoUrl ?? null} size={60} />
+          <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity rounded-full">
+            {uploading ? (
+              <span className="text-white text-xs">업로드 중...</span>
+            ) : (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                <rect x="3" y="7" width="18" height="14" rx="2" stroke="white" strokeWidth="1.8" />
+                <circle cx="12" cy="13" r="4" stroke="white" strokeWidth="1.8" />
+                <path d="M9 7L10.5 4H13.5L15 7" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            )}
+          </div>
+        </div>
+      </button>
 
       {/* 사람 노드 — 전원 표시 */}
       {people.map((person, idx) => (
@@ -148,6 +164,9 @@ export default function PeoplePage() {
   const [people, setPeople] = useState([])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
+  const [uploading, setUploading] = useState(false)
+  const [myPhotoUrl, setMyPhotoUrl] = useState(user?.photo_url ?? null)
+  const fileInputRef = useRef(null)
 
   useEffect(() => {
     getPeopleList()
@@ -160,6 +179,21 @@ export default function PeoplePage() {
       .finally(() => setLoading(false))
   }, [])
 
+  const handlePhotoChange = async (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    setUploading(true)
+    try {
+      const res = await updateMyPhoto(file)
+      setMyPhotoUrl(res.photo_url)
+    } catch {
+      alert('사진 업로드에 실패했습니다.')
+    } finally {
+      setUploading(false)
+      e.target.value = ''
+    }
+  }
+
   if (loading) return <p className="p-4">불러오는 중...</p>
 
   return (
@@ -169,6 +203,14 @@ export default function PeoplePage() {
       </header>
 
       {error && <p className="text-red-500 text-sm px-6 mb-4">{error}</p>}
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handlePhotoChange}
+      />
 
       {people.length === 0 ? (
         <div className="flex flex-col items-center justify-center px-6 py-20 text-center">
@@ -181,7 +223,13 @@ export default function PeoplePage() {
           </button>
         </div>
       ) : (
-        <ClusterView people={people} currentUser={user} />
+        <ClusterView
+          people={people}
+          currentUser={user}
+          myPhotoUrl={myPhotoUrl}
+          onPhotoClick={() => fileInputRef.current?.click()}
+          uploading={uploading}
+        />
       )}
 
       <BottomTabBar />

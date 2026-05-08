@@ -39,6 +39,7 @@ class UserMeResponse(BaseModel):
     nick_name: str
     age: int
     gender: str
+    photo_url: str | None = None
 
 
 # 프로필 사진 업데이트 응답
