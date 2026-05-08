@@ -6,7 +6,7 @@ class PersonCreate(BaseModel):
     age: int
     relation: str
     address: str
-    embedding: Optional[bytes] = None  # Assuming embedding is stored as binary data (blob)
+    embedding: Optional[list[float]] = None
 
 class PersonData(BaseModel) :
     id : int
@@ -14,7 +14,7 @@ class PersonData(BaseModel) :
     age : int
     relation : str
     address : str
-    embedding : Optional[bytes] = None
+    embedding: Optional[list[float]] = None
     photo_url : Optional[str] = None
     count : int
     status : str
