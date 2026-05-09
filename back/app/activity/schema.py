@@ -1,5 +1,5 @@
 from pydantic import BaseModel, ConfigDict
-from datetime import date, time
+from datetime import date as Date, time as Time
 from typing import List, Optional
 
 
@@ -33,8 +33,8 @@ class PhotoInfo(BaseModel):
 # ── 응답 data 스키마 ─────────────────────────────────────────
 class ActivityData(BaseModel):
     log_id: int
-    date: date
-    time: time
+    date: Date
+    time: Time
     memo: str
     place: Optional[PlaceInfo] = None
     people: List[PersonInfo]
@@ -55,8 +55,8 @@ class PhotoGroupResult(BaseModel):
     group_index: int
     match_type: str         # "exact" | "date_only" | "none" | "face_only"
     # face_only 그룹은 EXIF가 없으므로 날짜·위치 정보가 없을 수 있음
-    date: Optional[date] = None
-    time: Optional[time] = None
+    date: Optional[Date] = None
+    time: Optional[Time] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     photo_count: int        # 이 그룹의 사진 수
@@ -88,7 +88,7 @@ class PhotoVerifyResponse(BaseModel):
     match: bool
     date_match: bool
     location_match: bool
-    photo_date: Optional[date] = None
+    photo_date: Optional[Date] = None
     photo_place_name: Optional[str] = None
-    schedule_date: Optional[date] = None
+    schedule_date: Optional[Time] = None
     schedule_place_name: Optional[str] = None

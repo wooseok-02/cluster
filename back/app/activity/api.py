@@ -25,7 +25,9 @@ async def upload_photos_route(
     if len(photos) > 10:
         raise HTTPException(status_code=400, detail="최대 10장까지 업로드 가능합니다")
 
+    print(f"[API] upload_photos_route 시작 - 사진 수: {len(photos)}장")
     result = await upload_photos(db, photos, current_user)
+    print(f"[API] upload_photos_route 완료 - 그룹 수: {len(result['results'])}, skipped: {result['skipped_count']}")
     return {
         "status": 200,
         "message": f"{len(result['results'])}개 그룹으로 분석되었습니다",
