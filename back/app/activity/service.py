@@ -116,9 +116,12 @@ def _match_group(db: Session, group: list[dict], current_user) -> dict:
 async def upload_photos(db: Session, photos: list, current_user: User) -> dict:
     """EXIF 추출 → 그룹화 → 매칭 결과 반환 (DB 저장 없음)"""
     photo_data_list = []
+    face_only_bytes_list = []   # EXIF 추출 실패 사진 — 얼굴 감지만 시도
     skipped_count = 0
+    results = []
 
-    # photo 리스트에서 하나씩 꺼내서 -> 위치와 시간 추출
+    # photo 리스트에서 하나씩 꺼내서 위치·시간 추출
+    # EXIF 실패 사진은 버리지 않고 얼굴 감지 시도용으로 보관
     for photo in photos:
         try:
             photo_bytes = await photo.read()
@@ -130,25 +133,97 @@ async def upload_photos(db: Session, photos: list, current_user: User) -> dict:
                 "bytes": photo_bytes,   # 얼굴 매칭에 재사용하기 위해 bytes 보존
             })
         except HTTPException:
-            skipped_count += 1
+            # EXIF 없음 → 날짜·위치는 모르지만 얼굴은 감지할 수 있으므로 따로 보관
+            face_only_bytes_list.append(photo_bytes)
 
-    #사진이 없으면 에러 반환
-    if not photo_data_list:
+    # ── face_only 그룹 처리 ───────────────────────────────────
+    # EXIF 실패 사진들을 ai_server에 보내 얼굴이 있으면 face_only 그룹으로 추가
+    if face_only_bytes_list:
+        try:
+            # 1단계: /embed-group으로 EXIF 없는 사진에서 얼굴 임베딩 추출
+            files = [("photos", ("photo.jpg", b, "image/jpeg")) for b in face_only_bytes_list]
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                response = await client.post(
+                    f"{settings.AI_SERVER_URL}/embed-group",
+                    files=files,
+                )
+            embed_result = response.json()
+            face_embeddings = embed_result.get("face_embeddings", [])
+
+            if face_embeddings:
+                # 2단계: DB에서 embedding이 있는 People 조회 후 /match 호출
+                people = db.query(PeopleModel).filter(
+                    PeopleModel.user_id == current_user.id,
+                    PeopleModel.embedding.isnot(None),
+                ).all()
+                candidates = [{"people_id": p.id, "embedding": p.embedding} for p in people]
+
+                async with httpx.AsyncClient(timeout=60.0) as client:
+                    match_response = await client.post(
+                        f"{settings.AI_SERVER_URL}/match",
+                        json={
+                            "face_embeddings": face_embeddings,
+                            "self_embedding": current_user.embedding,
+                            "candidates": candidates,
+                        },
+                    )
+                match_result = match_response.json()
+
+                # face_only 그룹 — 날짜·위치 없이 얼굴 매칭 결과만 포함
+                # group_index는 마지막에 enumerate로 재할당
+                face_only_group = {
+                    "group_index": None,
+                    "match_type": "face_only",
+                    "date": None,
+                    "time": None,
+                    "latitude": None,
+                    "longitude": None,
+                    "photo_count": len(face_only_bytes_list),
+                    "schedule_id": None,
+                    "schedule_title": None,
+                    "place_id": None,
+                    "place_name": None,
+                    "people": None,
+                    "candidates": [],
+                    "matched_people_ids": [m["people_id"] for m in match_result.get("matched", [])],
+                    "unmatched_face_count": len(match_result.get("unmatched", [])),
+                    "unmatched_embeddings": [
+                        face_embeddings[u["face_index"]] for u in match_result.get("unmatched", [])
+                    ],
+                    "self_detected": len(match_result.get("self", [])) > 0,
+                }
+                results.append(face_only_group)
+            else:
+                # 얼굴도 없음 → 진짜 스킵
+                skipped_count += len(face_only_bytes_list)
+
+        except Exception:
+            # ai_server 호출 실패 → face_only 사진 전체 스킵 처리
+            skipped_count += len(face_only_bytes_list)
+
+    # face_only 그룹이 있으면 유효한 사진으로 인정
+    has_valid = bool(photo_data_list) or any(
+        r.get("match_type") == "face_only" for r in results
+    )
+    if not has_valid and not photo_data_list:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="유효한 사진이 없습니다"
         )
 
+    # EXIF 기반 그룹 처리 (기존 로직 유지)
     groups = _group_photos(photo_data_list)
-    results = []
     for idx, group in enumerate(groups):
         # 일정 매칭 (GPS + 날짜 기반)
         match_result = _match_group(db, group, current_user)
         # 얼굴 매칭 (ai_server 호출) — 실패해도 fallback 값으로 merge
         face_result = await _face_match_group(group, current_user, db)
         match_result.update(face_result)
-        match_result["group_index"] = idx
         results.append(match_result)
+
+    # 모든 그룹(face_only 포함)에 순서대로 group_index 재할당
+    for idx, result in enumerate(results):
+        result["group_index"] = idx
 
     return {"results": results, "skipped_count": skipped_count}
 
@@ -188,15 +263,17 @@ async def _face_match_group(group: list[dict], current_user, db: Session) -> dic
     photo_bytes_list = [item["bytes"] for item in group if "bytes" in item]
     if not photo_bytes_list:
         return default
-
+    print("=== _face_match_group 시작 ===")
     try:
         # multipart/form-data로 여러 사진 전송, 필드명은 "photos"
         files = [("photos", ("photo.jpg", b, "image/jpeg")) for b in photo_bytes_list]
+        print("embed-group 호출 전")
         async with httpx.AsyncClient(timeout=60.0) as client:
             response = await client.post(
                 f"{settings.AI_SERVER_URL}/embed-group",
                 files=files,
             )
+        print(f"embed-group 결과: {face_embeddings}")
         response.raise_for_status()
         embed_data = response.json()
         face_embeddings = embed_data["face_embeddings"]
@@ -226,14 +303,17 @@ async def _face_match_group(group: list[dict], current_user, db: Session) -> dic
             "self_embedding": current_user.embedding,   # 본인 임베딩 (없으면 null)
             "candidates": candidates,
         }
+        print("match 호출 전")
         async with httpx.AsyncClient(timeout=60.0) as client:
             response = await client.post(
                 f"{settings.AI_SERVER_URL}/match",
                 json=match_body,
             )
+        print(f"match 결과: {response}")
         response.raise_for_status()
         result = response.json()
-    except Exception:
+    except Exception as e:
+        print(f"에러 발생: {e}")
         # /match 호출 실패 시 fallback
         return default
 

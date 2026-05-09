@@ -53,11 +53,12 @@ class ActivityRead(BaseModel):
 # ── 사진 업로드 분석 결과 스키마 ─────────────────────────────
 class PhotoGroupResult(BaseModel):
     group_index: int
-    match_type: str         # "exact" | "date_only" | "none"
-    date: date
-    time: time
-    latitude: float
-    longitude: float
+    match_type: str         # "exact" | "date_only" | "none" | "face_only"
+    # face_only 그룹은 EXIF가 없으므로 날짜·위치 정보가 없을 수 있음
+    date: Optional[date] = None
+    time: Optional[time] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
     photo_count: int        # 이 그룹의 사진 수
     # match_type == "exact" 일 때
     schedule_id: Optional[int] = None
