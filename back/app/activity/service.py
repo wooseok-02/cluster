@@ -13,8 +13,10 @@ from activity.model import ActivityLog, Photo, log_people
 from schedule.model import Schedule
 from place.model import Place
 from auth.model import User
+from people.model import People as PeopleModel  # People과 이름 충돌 방지
 from utils.geo import _haversine
 from utils.exif import _extract_info_from_exif
+import httpx
 
 
 # ── 사진 그룹화 ───────────────────────────────────────────────
@@ -125,6 +127,7 @@ async def upload_photos(db: Session, photos: list, current_user: User) -> dict:
                 "latitude": latitude,
                 "longitude": longitude,
                 "datetime": dt,
+                "bytes": photo_bytes,   # 얼굴 매칭에 재사용하기 위해 bytes 보존
             })
         except HTTPException:
             skipped_count += 1
@@ -139,11 +142,116 @@ async def upload_photos(db: Session, photos: list, current_user: User) -> dict:
     groups = _group_photos(photo_data_list)
     results = []
     for idx, group in enumerate(groups):
+        # 일정 매칭 (GPS + 날짜 기반)
         match_result = _match_group(db, group, current_user)
+        # 얼굴 매칭 (ai_server 호출) — 실패해도 fallback 값으로 merge
+        face_result = await _face_match_group(group, current_user, db)
+        match_result.update(face_result)
         match_result["group_index"] = idx
         results.append(match_result)
 
     return {"results": results, "skipped_count": skipped_count}
+
+
+# ── 얼굴 매칭 (ai_server 호출) ───────────────────────────────
+async def _face_match_group(group: list[dict], current_user, db: Session) -> dict:
+    """
+    단체 사진 그룹에서 얼굴을 추출하고 등록된 People과 매칭한다.
+
+    처리 흐름:
+        1. ai_server POST /embed-group → 그룹 내 사진에서 전체 얼굴 임베딩 추출
+        2. DB에서 현재 유저의 People 중 embedding이 있는 것만 candidates로 구성
+        3. ai_server POST /match → self / matched / unmatched 분류
+        4. 결과 파싱 후 반환
+
+    실패 정책:
+        - ai_server 호출 오류, 얼굴 미감지 등 모든 예외는 fallback 값으로 흡수
+        - 서비스 전체 중단 없이 항상 dict 반환
+
+    Returns:
+        {
+            "matched_people_ids": [int, ...],
+            "unmatched_face_count": int,
+            "unmatched_embeddings": [[float, ...], ...],
+            "self_detected": bool
+        }
+    """
+    # 실패 시 반환할 기본값 — 항상 이 구조로 반환되어야 한다
+    default = {
+        "matched_people_ids": [],
+        "unmatched_face_count": 0,
+        "unmatched_embeddings": [],
+        "self_detected": False,
+    }
+
+    # ── 1단계: /embed-group 호출 — 그룹 내 사진에서 얼굴 임베딩 추출 ──
+    photo_bytes_list = [item["bytes"] for item in group if "bytes" in item]
+    if not photo_bytes_list:
+        return default
+
+    try:
+        # multipart/form-data로 여러 사진 전송, 필드명은 "photos"
+        files = [("photos", ("photo.jpg", b, "image/jpeg")) for b in photo_bytes_list]
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            response = await client.post(
+                f"{settings.AI_SERVER_URL}/embed-group",
+                files=files,
+            )
+        response.raise_for_status()
+        embed_data = response.json()
+        face_embeddings = embed_data["face_embeddings"]
+        face_count = embed_data["face_count"]
+    except Exception:
+        # 네트워크 오류, 서버 오류, 파싱 오류 등 모두 fallback
+        return default
+
+    # 감지된 얼굴이 없으면 매칭 불필요
+    if face_count == 0:
+        return default
+
+    # ── 2단계: DB에서 embedding이 있는 People만 candidates로 구성 ──
+    people_list = db.query(PeopleModel).filter(
+        PeopleModel.user_id == current_user.id
+    ).all()
+    # embedding이 None인 People은 매칭 대상에서 제외
+    candidates = [
+        {"people_id": p.id, "embedding": p.embedding}
+        for p in people_list if p.embedding is not None
+    ]
+
+    # ── 3단계: /match 호출 — self / matched / unmatched 분류 ──
+    try:
+        match_body = {
+            "face_embeddings": face_embeddings,
+            "self_embedding": current_user.embedding,   # 본인 임베딩 (없으면 null)
+            "candidates": candidates,
+        }
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            response = await client.post(
+                f"{settings.AI_SERVER_URL}/match",
+                json=match_body,
+            )
+        response.raise_for_status()
+        result = response.json()
+    except Exception:
+        # /match 호출 실패 시 fallback
+        return default
+
+    # ── 4단계: 결과 파싱 ──────────────────────────────────────
+    matched_people_ids = [m["people_id"] for m in result["matched"]]
+    unmatched_face_count = len(result["unmatched"])
+    # 미등록 얼굴의 임베딩 — face_index로 원본 임베딩 참조
+    unmatched_embeddings = [
+        face_embeddings[u["face_index"]] for u in result["unmatched"]
+    ]
+    self_detected = len(result["self"]) > 0
+
+    return {
+        "matched_people_ids": matched_people_ids,
+        "unmatched_face_count": unmatched_face_count,
+        "unmatched_embeddings": unmatched_embeddings,
+        "self_detected": self_detected,
+    }
 
 
 # ── 일정 확정 → ActivityLog 생성 ─────────────────────────────
@@ -152,7 +260,8 @@ def confirm_schedule(
     schedule_id: int,
     memo: Optional[str],
     current_user: User,
-    photo_bytes_list: list[bytes] = None   # 선택적으로 사진을 함께 저장
+    photo_bytes_list: list[bytes] = None,   # 선택적으로 사진을 함께 저장
+    matched_people_ids: list[int] = [],     # 얼굴 매칭으로 추가 식별된 People ID 목록
 ):
     schedule = db.query(Schedule).filter(
         Schedule.id == schedule_id,
@@ -204,33 +313,36 @@ def confirm_schedule(
     )
     activity_log.people = list(schedule.people)
 
-    # People count 중복 방지 — 같은 날 이미 완료된 다른 일정에 같은 사람이 있으면 증가 안 함
-    from schedule.model import Schedule as ScheduleModel, schedule_people
-    completed_today = (
-        db.query(ScheduleModel)
-        .filter(
-            ScheduleModel.user_id == current_user.id,
-            ScheduleModel.status == "Completed",
-            ScheduleModel.id != schedule.id,
+    # 얼굴 매칭으로 추가 식별된 People을 합산 (schedule.people과 중복 제거)
+    if matched_people_ids:
+        matched_people = db.query(PeopleModel).filter(
+            PeopleModel.id.in_(matched_people_ids),
+            PeopleModel.user_id == current_user.id,  # 타 유저 People 접근 방지
         ).all()
-    )
-    completed_today_same_date = [
-        s for s in completed_today if s.start_time.date() == activity_date
-    ]
-    counted_people_ids = set()
-    for s in completed_today_same_date:
-        for p in s.people:
-            counted_people_ids.add(p.id)
-    counted_place_ids = {s.place_id for s in completed_today_same_date if s.place_id}
+        # id를 키로 dict를 만들어 중복 없이 합산
+        people_map = {p.id: p for p in list(schedule.people) + matched_people}
+        final_people = list(people_map.values())
+        activity_log.people = final_people
 
+    # People count / Place visit_count 중복 방지
+    # Schedule 기준이 아닌 ActivityLog 기준으로 같은 날 이미 기록된 항목 조회
+    existing_logs = db.query(ActivityLog).filter(
+        ActivityLog.user_id == current_user.id,
+        ActivityLog.date == activity_date,
+    ).all()
+    # 같은 날 이미 카운트된 People ID / Place ID 수집
+    counted_people_ids = {p.id for log in existing_logs for p in log.people}
+    counted_place_ids = {log.place_id for log in existing_logs if log.place_id}
+
+    # 이미 카운트되지 않은 사람만 count 증가
     for person in activity_log.people:
         if person.id not in counted_people_ids:
             person.count += 1
 
-    # Place visit_count 중복 방지 — 같은 날 이미 완료된 다른 일정에 같은 장소 있으면 증가 안 함
-    if final_place_id:
+    # Place visit_count 중복 방지 — 같은 날 이미 기록된 장소는 증가 안 함
+    if final_place_id and final_place_id not in counted_place_ids:
         place = db.query(Place).filter(Place.id == final_place_id).first()
-        if place and final_place_id not in counted_place_ids:
+        if place:
             place.visit_count += 1
 
     db.add(activity_log)

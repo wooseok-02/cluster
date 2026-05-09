@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, File, Form, UploadFile, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Optional
+import json
 
 from activity.schema import ActivityRead, ConfirmRequest, PhotoUploadResponse, PhotoVerifyResponse
 from activity.service import confirm_schedule, get_activity, upload_photos, verify_photo
@@ -38,6 +39,7 @@ async def confirm_schedule_route(
     schedule_id: int,
     memo: Optional[str] = Form(None),                        # 선택 메모
     photos: Optional[List[UploadFile]] = File(None),         # 선택 사진 (없어도 됨)
+    matched_people_ids: str = Form("[]"),                    # 얼굴 매칭 결과 People ID 목록 (JSON 배열 문자열)
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
@@ -48,7 +50,11 @@ async def confirm_schedule_route(
         for photo in photos:
             photo_bytes_list.append(await photo.read())
 
-    activity_log = confirm_schedule(db, schedule_id, memo, current_user, photo_bytes_list)
+    # Form으로 받은 JSON 문자열을 int 리스트로 파싱
+    # 예: '[]' → [], '[1, 2, 3]' → [1, 2, 3]
+    people_ids = json.loads(matched_people_ids)
+
+    activity_log = confirm_schedule(db, schedule_id, memo, current_user, photo_bytes_list, people_ids)
     return {
         "status": 200,
         "message": "일정이 확정되고 활동 기록이 생성되었습니다",
