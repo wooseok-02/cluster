@@ -114,239 +114,147 @@ def _match_group(db: Session, group: list[dict], current_user) -> dict:
 
 # ── 사진 업로드 메인 함수 ─────────────────────────────────────
 async def upload_photos(db: Session, photos: list, current_user: User) -> dict:
-    """EXIF 추출 → 그룹화 → 매칭 결과 반환 (DB 저장 없음)"""
-    photo_data_list = []
-    face_only_bytes_list = []   # EXIF 추출 실패 사진 — 얼굴 감지만 시도
-    skipped_count = 0
-    results = []
+    """EXIF 추출 → ai_server /detect 1회 → 그룹화 → 일정 매칭 결과 반환 (DB 저장 없음)"""
+    import json
 
-    # photo 리스트에서 하나씩 꺼내서 위치·시간 추출
-    # EXIF 실패 사진은 버리지 않고 얼굴 감지 시도용으로 보관
-    for photo in photos:
+    # 사진업로드 파이프라인 1번: 사진 bytes 읽기 및 EXIF 추출
+    # — photo_index로 각 사진을 추적, EXIF 없는 사진은 datetime/위치를 None으로 보관
+    photos_data = []
+    for i, photo in enumerate(photos):
+        photo_bytes = await photo.read()
         try:
-            photo_bytes = await photo.read()
             latitude, longitude, dt = _extract_info_from_exif(photo_bytes)
-            photo_data_list.append({
+            photos_data.append({
+                "photo_index": i,
+                "datetime": dt,        # _group_photos / _match_group 호환용
                 "latitude": latitude,
                 "longitude": longitude,
-                "datetime": dt,
-                "bytes": photo_bytes,   # 얼굴 매칭에 재사용하기 위해 bytes 보존
+                "bytes": photo_bytes,
             })
         except HTTPException:
-            # EXIF 없음 → 날짜·위치는 모르지만 얼굴은 감지할 수 있으므로 따로 보관
-            face_only_bytes_list.append(photo_bytes)
+            # EXIF 없음 → 날짜·위치 None, 독립 그룹으로 처리
+            photos_data.append({
+                "photo_index": i,
+                "datetime": None,
+                "latitude": None,
+                "longitude": None,
+                "bytes": photo_bytes,
+            })
 
-    print(f"[upload_photos] EXIF 성공: {len(photo_data_list)}장, EXIF 실패(face_only 시도): {len(face_only_bytes_list)}장")
+    exif_count = sum(1 for p in photos_data if p["datetime"] is not None)
+    noexif_count = len(photos_data) - exif_count
+    print(f"[upload_photos] 총 사진: {len(photos_data)}장 (EXIF 있음: {exif_count}장, EXIF 없음: {noexif_count}장)")
 
-    # ── face_only 그룹 처리 ───────────────────────────────────
-    # EXIF 실패 사진들을 ai_server에 보내 얼굴이 있으면 face_only 그룹으로 추가
-    if face_only_bytes_list:
-        try:
-            # 1단계: /embed-group으로 EXIF 없는 사진에서 얼굴 임베딩 추출
-            print(f"[upload_photos] face_only /embed-group 호출 전 - {len(face_only_bytes_list)}장")
-            files = [("photos", ("photo.jpg", b, "image/jpeg")) for b in face_only_bytes_list]
-            async with httpx.AsyncClient(timeout=60.0) as client:
-                response = await client.post(
-                    f"{settings.AI_SERVER_URL}/embed-group",
-                    files=files,
-                )
-            embed_result = response.json()
-            face_embeddings = embed_result.get("face_embeddings", [])
-            print(f"[upload_photos] face_only /embed-group 완료 - 감지된 얼굴 수: {len(face_embeddings)}")
-
-            if face_embeddings:
-                # 2단계: DB에서 embedding이 있는 People 조회 후 /match 호출
-                people = db.query(PeopleModel).filter(
-                    PeopleModel.user_id == current_user.id,
-                    PeopleModel.embedding.isnot(None),
-                ).all()
-                candidates = [{"people_id": p.id, "embedding": p.embedding} for p in people]
-
-                print(f"[upload_photos] face_only /match 호출 전 - 얼굴: {len(face_embeddings)}개, candidates: {len(candidates)}명")
-                async with httpx.AsyncClient(timeout=60.0) as client:
-                    match_response = await client.post(
-                        f"{settings.AI_SERVER_URL}/match",
-                        json={
-                            "face_embeddings": face_embeddings,
-                            "self_embedding": current_user.embedding,
-                            "candidates": candidates,
-                        },
-                    )
-                match_result = match_response.json()
-                print(f"[upload_photos] face_only /match 완료 - matched: {len(match_result.get('matched', []))}, unmatched: {len(match_result.get('unmatched', []))}, self: {len(match_result.get('self', []))}")
-
-                # face_only 그룹 — 날짜·위치 없이 얼굴 매칭 결과만 포함
-                # group_index는 마지막에 enumerate로 재할당
-                face_only_group = {
-                    "group_index": None,
-                    "match_type": "face_only",
-                    "date": None,
-                    "time": None,
-                    "latitude": None,
-                    "longitude": None,
-                    "photo_count": len(face_only_bytes_list),
-                    "schedule_id": None,
-                    "schedule_title": None,
-                    "place_id": None,
-                    "place_name": None,
-                    "people": None,
-                    "candidates": [],
-                    "matched_people_ids": [m["people_id"] for m in match_result.get("matched", [])],
-                    "unmatched_face_count": len(match_result.get("unmatched", [])),
-                    "unmatched_embeddings": [
-                        face_embeddings[u["face_index"]] for u in match_result.get("unmatched", [])
-                    ],
-                    "self_detected": len(match_result.get("self", [])) > 0,
-                }
-                results.append(face_only_group)
-            else:
-                # 얼굴도 없음 → 진짜 스킵
-                skipped_count += len(face_only_bytes_list)
-
-        except Exception as e:
-            # ai_server 호출 실패 → face_only 사진 전체 스킵 처리
-            print(f"[upload_photos] face_only 처리 실패: {e}")
-            skipped_count += len(face_only_bytes_list)
-
-    # face_only 그룹이 있으면 유효한 사진으로 인정
-    has_valid = bool(photo_data_list) or any(
-        r.get("match_type") == "face_only" for r in results
-    )
-    if not has_valid and not photo_data_list:
+    if not photos_data:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="유효한 사진이 없습니다"
         )
 
-    # EXIF 기반 그룹 처리 (기존 로직 유지)
-    groups = _group_photos(photo_data_list)
+    # 사진업로드 파이프라인 2번: DB People 쿼리 (1회)
+    # — embedding이 있는 People만 candidates로 구성
+    people_list = db.query(PeopleModel).filter(
+        PeopleModel.user_id == current_user.id,
+        PeopleModel.embedding.isnot(None),
+    ).all()
+    candidates = [{"people_id": p.id, "embedding": p.embedding} for p in people_list]
+    print(f"[upload_photos] DB People 쿼리: 1회 — {len(candidates)}명")
+
+    # 사진업로드 파이프라인 3번: ai_server POST /detect 호출 (1회)
+    # — 전체 사진을 한 번에 전송, photo_index별 얼굴 매칭 결과 수신
+    print(f"[upload_photos] ai_server 호출: 1회 — {len(photos_data)}장")
+    detect_result = []
+    try:
+        files = [("photos", ("photo.jpg", p["bytes"], "image/jpeg")) for p in photos_data]
+        data = {
+            "self_embedding": json.dumps(current_user.embedding) if current_user.embedding else "null",
+            "candidates": json.dumps(candidates),
+        }
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            response = await client.post(
+                f"{settings.AI_SERVER_URL}/detect",
+                files=files,
+                data=data,
+            )
+        response.raise_for_status()
+        detect_result = response.json()
+        print(f"[upload_photos] /detect 완료 — {len(detect_result)}개 결과")
+    except Exception as e:
+        # ai_server 실패 시 모든 사진의 얼굴 매칭 결과를 fallback(빈 값)으로 처리
+        print(f"[upload_photos] /detect 실패: {e}")
+        detect_result = [
+            {"photo_index": p["photo_index"], "matched_people_ids": [], "unmatched_count": 0, "self_detected": False}
+            for p in photos_data
+        ]
+
+    # 사진업로드 파이프라인 4번: photo_index 기준으로 detect 결과를 각 사진 dict에 합치기
+    detect_map = {r["photo_index"]: r for r in detect_result}
+    for photo in photos_data:
+        photo.update(detect_map.get(photo["photo_index"], {
+            "matched_people_ids": [],
+            "unmatched_count": 0,
+            "self_detected": False,
+        }))
+
+    # 사진업로드 파이프라인 5번: EXIF 유무로 분리 후 그룹화
+    # — EXIF 있는 사진: 날짜 + GPS 200m 기준 그룹화
+    # — EXIF 없는 사진: 각각 독립 그룹 (match_type: "none")
+    exif_photos = [p for p in photos_data if p["datetime"] is not None]
+    noexif_photos = [p for p in photos_data if p["datetime"] is None]
+
+    results = []
+
+    # EXIF 있는 사진 그룹 처리
+    groups = _group_photos(exif_photos)
     print(f"[upload_photos] EXIF 그룹 수: {len(groups)}개")
     for idx, group in enumerate(groups):
-        print(f"[upload_photos] 그룹 {idx} 처리 시작 - 사진 {len(group)}장")
-        # 일정 매칭 (GPS + 날짜 기반)
+        # 사진업로드 파이프라인 6번: 그룹별 일정 매칭 (_match_group)
+        # — GPS + 날짜 기반으로 Schedule 후보 탐색
         match_result = _match_group(db, group, current_user)
-        print(f"[upload_photos] 그룹 {idx} _match_group 완료 - match_type: {match_result.get('match_type')}")
-        # 얼굴 매칭 (ai_server 호출) — 실패해도 fallback 값으로 merge
-        face_result = await _face_match_group(group, current_user, db)
-        print(f"[upload_photos] 그룹 {idx} _face_match_group 완료 - matched_people: {face_result.get('matched_people_ids')}, self: {face_result.get('self_detected')}")
-        match_result.update(face_result)
+        print(f"[upload_photos] 그룹 {idx} match_type: {match_result.get('match_type')}")
+
+        # 사진업로드 파이프라인 7번: 그룹 내 얼굴 매칭 결과 집계 (중복 제거)
+        # — 같은 사람이 그룹 내 여러 사진에 등장해도 matched_people_ids에 1번만 포함
+        group_people = list(set(
+            pid
+            for photo in group
+            for pid in photo.get("matched_people_ids", [])
+        ))
+        unmatched_face_count = sum(photo.get("unmatched_count", 0) for photo in group)
+        self_detected = any(photo.get("self_detected", False) for photo in group)
+
+        match_result["matched_people_ids"] = group_people
+        match_result["unmatched_face_count"] = unmatched_face_count
+        match_result["unmatched_embeddings"] = []
+        match_result["self_detected"] = self_detected
         results.append(match_result)
 
-    # 모든 그룹(face_only 포함)에 순서대로 group_index 재할당
+    # EXIF 없는 사진: 각각 독립 그룹
+    for photo in noexif_photos:
+        results.append({
+            "match_type": "none",
+            "date": None,
+            "time": None,
+            "latitude": None,
+            "longitude": None,
+            "photo_count": 1,
+            "schedule_id": None,
+            "schedule_title": None,
+            "place_id": None,
+            "place_name": None,
+            "people": None,
+            "candidates": [],
+            "matched_people_ids": photo.get("matched_people_ids", []),
+            "unmatched_face_count": photo.get("unmatched_count", 0),
+            "unmatched_embeddings": [],
+            "self_detected": photo.get("self_detected", False),
+        })
+
     for idx, result in enumerate(results):
         result["group_index"] = idx
 
-    print(f"[upload_photos] 전체 완료 - 총 그룹: {len(results)}개, skipped: {skipped_count}장")
-    return {"results": results, "skipped_count": skipped_count}
-
-
-# ── 얼굴 매칭 (ai_server 호출) ───────────────────────────────
-async def _face_match_group(group: list[dict], current_user, db: Session) -> dict:
-    """
-    단체 사진 그룹에서 얼굴을 추출하고 등록된 People과 매칭한다.
-
-    처리 흐름:
-        1. ai_server POST /embed-group → 그룹 내 사진에서 전체 얼굴 임베딩 추출
-        2. DB에서 현재 유저의 People 중 embedding이 있는 것만 candidates로 구성
-        3. ai_server POST /match → self / matched / unmatched 분류
-        4. 결과 파싱 후 반환
-
-    실패 정책:
-        - ai_server 호출 오류, 얼굴 미감지 등 모든 예외는 fallback 값으로 흡수
-        - 서비스 전체 중단 없이 항상 dict 반환
-
-    Returns:
-        {
-            "matched_people_ids": [int, ...],
-            "unmatched_face_count": int,
-            "unmatched_embeddings": [[float, ...], ...],
-            "self_detected": bool
-        }
-    """
-    # 실패 시 반환할 기본값 — 항상 이 구조로 반환되어야 한다
-    default = {
-        "matched_people_ids": [],
-        "unmatched_face_count": 0,
-        "unmatched_embeddings": [],
-        "self_detected": False,
-    }
-
-    # ── 1단계: /embed-group 호출 — 그룹 내 사진에서 얼굴 임베딩 추출 ──
-    photo_bytes_list = [item["bytes"] for item in group if "bytes" in item]
-    if not photo_bytes_list:
-        return default
-    print("=== _face_match_group 시작 ===")
-    try:
-        # multipart/form-data로 여러 사진 전송, 필드명은 "photos"
-        files = [("photos", ("photo.jpg", b, "image/jpeg")) for b in photo_bytes_list]
-        print("embed-group 호출 전")
-        print(f"AI_SERVER_URL: {settings.AI_SERVER_URL}")
-        print(f"photo_bytes_list 길이: {len(photo_bytes_list)}")
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            response = await client.post(
-                f"{settings.AI_SERVER_URL}/embed-group",
-                files=files,
-            )
-        response.raise_for_status()
-        embed_data = response.json()
-        face_embeddings = embed_data["face_embeddings"]
-        print(f"embed-group 결과: {face_embeddings}")
-        face_count = embed_data["face_count"]
-    except Exception as e:
-        # 네트워크 오류, 서버 오류, 파싱 오류 등 모두 fallback
-        print(f"[_face_match_group] embed-group 실패: {e}")
-        return default
-
-    # 감지된 얼굴이 없으면 매칭 불필요
-    if face_count == 0:
-        return default
-
-    # ── 2단계: DB에서 embedding이 있는 People만 candidates로 구성 ──
-    people_list = db.query(PeopleModel).filter(
-        PeopleModel.user_id == current_user.id
-    ).all()
-    # embedding이 None인 People은 매칭 대상에서 제외
-    candidates = [
-        {"people_id": p.id, "embedding": p.embedding}
-        for p in people_list if p.embedding is not None
-    ]
-
-    # ── 3단계: /match 호출 — self / matched / unmatched 분류 ──
-    try:
-        match_body = {
-            "face_embeddings": face_embeddings,
-            "self_embedding": current_user.embedding,   # 본인 임베딩 (없으면 null)
-            "candidates": candidates,
-        }
-        print("match 호출 전")
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            response = await client.post(
-                f"{settings.AI_SERVER_URL}/match",
-                json=match_body,
-            )
-        print(f"match 결과: {response}")
-        response.raise_for_status()
-        result = response.json()
-    except Exception as e:
-        print(f"에러 발생: {e}")
-        # /match 호출 실패 시 fallback
-        return default
-
-    # ── 4단계: 결과 파싱 ──────────────────────────────────────
-    matched_people_ids = [m["people_id"] for m in result["matched"]]
-    unmatched_face_count = len(result["unmatched"])
-    # 미등록 얼굴의 임베딩 — face_index로 원본 임베딩 참조
-    unmatched_embeddings = [
-        face_embeddings[u["face_index"]] for u in result["unmatched"]
-    ]
-    self_detected = len(result["self"]) > 0
-
-    return {
-        "matched_people_ids": matched_people_ids,
-        "unmatched_face_count": unmatched_face_count,
-        "unmatched_embeddings": unmatched_embeddings,
-        "self_detected": self_detected,
-    }
+    print(f"[upload_photos] 전체 완료 — 총 그룹: {len(results)}개")
+    return {"results": results, "skipped_count": 0}
 
 
 # ── 일정 확정 → ActivityLog 생성 ─────────────────────────────
