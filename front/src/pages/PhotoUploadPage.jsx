@@ -2,7 +2,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { uploadPhotos } from '../api/activity'
-import { confirmSchedule } from '../api/schedule'
 
 export default function PhotoUploadPage() {
   const navigate = useNavigate()
@@ -13,11 +12,7 @@ export default function PhotoUploadPage() {
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState('')
 
-  // 그룹별 상태
-  const [confirmedGroups, setConfirmedGroups] = useState(new Set())
-  const [confirmingGroup, setConfirmingGroup] = useState(null)
-  const [confirmErrors, setConfirmErrors] = useState({})
-  const [memos, setMemos] = useState({})                   // group_index → memo
+  // date_only 그룹별 선택된 후보 일정
   const [selectedCandidates, setSelectedCandidates] = useState({}) // group_index → schedule_id
 
   const handleFileChange = (e) => {
@@ -29,9 +24,6 @@ export default function PhotoUploadPage() {
     setFiles(selected)
     setUploadError('')
     setResults(null)
-    setConfirmedGroups(new Set())
-    setConfirmErrors({})
-    setMemos({})
     setSelectedCandidates({})
   }
 
@@ -53,42 +45,26 @@ export default function PhotoUploadPage() {
     }
   }
 
-  const handleConfirm = async (groupIndex, scheduleId) => {
-    setConfirmErrors((prev) => ({ ...prev, [groupIndex]: '' }))
-    setConfirmingGroup(groupIndex)
-    try {
-      const memo = memos[groupIndex] || null
-      await confirmSchedule(scheduleId, memo, files)
-      setConfirmedGroups((prev) => new Set([...prev, groupIndex]))
-    } catch (err) {
-      const detail = err.response?.data?.detail
-      setConfirmErrors((prev) => ({
-        ...prev,
-        [groupIndex]: typeof detail === 'object' ? detail.message : detail || '확정에 실패했습니다.',
-      }))
-    } finally {
-      setConfirmingGroup(null)
-    }
+  // 기존 일정으로 이동
+  const handleViewSchedule = (scheduleId) => {
+    navigate(`/schedule/${scheduleId}`)
   }
 
+  // 신규 일정 생성 — 사진의 날짜·위치·감지된 사람을 폼에 자동 입력
   const handleAddSchedule = (group) => {
-    const startTime = String(group.time).slice(0, 5)
+    const startTime = group.time ? String(group.time).slice(0, 5) : '09:00'
     const [h, m] = startTime.split(':').map(Number)
     const endHour = String((h + 1) % 24).padStart(2, '0')
     const endTime = `${endHour}:${String(m).padStart(2, '0')}`
 
     const draft = {
-      form: { title: '', date: group.date, start_time: startTime, end_time: endTime, memo: '' },
-      selectedPeopleIds: [],
-      selectedPlaceId: group.place_id ?? null,
+      form: { title: '', date: group.date ?? '', start_time: startTime, end_time: endTime, memo: '' },
+      selectedPeopleIds: group.matched_people_ids ?? [],   // 얼굴 매칭으로 감지된 사람 자동 입력
+      selectedPlaceId: group.place_id ?? null,             // 사진 GPS로 매칭된 장소 자동 입력
     }
     sessionStorage.setItem('scheduleFormDraft', JSON.stringify(draft))
     navigate('/schedule/create')
   }
-
-  const exactGroups = results?.filter((r) => r.match_type === 'exact') ?? []
-  const allExactConfirmed =
-    exactGroups.length > 0 && exactGroups.every((r) => confirmedGroups.has(r.group_index))
 
   return (
     <div className="p-4 max-w-lg mx-auto pb-8">
@@ -128,27 +104,20 @@ export default function PhotoUploadPage() {
             <GroupCard
               key={group.group_index}
               group={group}
-              confirmed={confirmedGroups.has(group.group_index)}
-              confirming={confirmingGroup === group.group_index}
-              error={confirmErrors[group.group_index]}
-              memo={memos[group.group_index] ?? ''}
-              onMemoChange={(val) => setMemos((prev) => ({ ...prev, [group.group_index]: val }))}
               selectedCandidateId={selectedCandidates[group.group_index] ?? null}
               onSelectCandidate={(scheduleId) =>
                 setSelectedCandidates((prev) => ({ ...prev, [group.group_index]: scheduleId }))
               }
-              onConfirm={(scheduleId) => handleConfirm(group.group_index, scheduleId)}
+              onViewSchedule={handleViewSchedule}
               onAddSchedule={() => handleAddSchedule(group)}
             />
           ))}
 
           <button
             onClick={() => navigate('/calendar')}
-            className={`w-full py-2 rounded text-sm mt-2 ${
-              allExactConfirmed ? 'bg-green-500 text-white' : 'border text-gray-600'
-            }`}
+            className="w-full py-2 rounded text-sm mt-2 border text-gray-600"
           >
-            {allExactConfirmed ? '완료' : '캘린더로 돌아가기'}
+            캘린더로 돌아가기
           </button>
         </div>
       )}
@@ -158,13 +127,12 @@ export default function PhotoUploadPage() {
 
 // ── 그룹 카드 ─────────────────────────────────────────────────
 function GroupCard({
-  group, confirmed, confirming, error,
-  memo, onMemoChange,
+  group,
   selectedCandidateId, onSelectCandidate,
-  onConfirm, onAddSchedule,
+  onViewSchedule, onAddSchedule,
 }) {
   const dateStr = group.date ? group.date.replace(/-/g, ' - ') : ''
-  const timeStr = String(group.time).slice(0, 5)
+  const timeStr = group.time ? String(group.time).slice(0, 5) : ''
 
   const badgeStyle = {
     exact: 'bg-blue-100 text-blue-600',
@@ -179,19 +147,20 @@ function GroupCard({
   }[group.match_type] ?? '매칭 없음'
 
   return (
-    <div className={`border rounded p-4 space-y-2 ${confirmed ? 'opacity-60' : ''}`}>
+    <div className="border rounded p-4 space-y-2">
       {/* 헤더: 날짜/시간 + 뱃지 */}
       <div className="flex justify-between items-start">
         <div className="space-y-0.5">
-          <p className="text-sm font-medium">날짜 | {dateStr}</p>
-          <p className="text-xs text-gray-500">시간 | {timeStr}</p>
+          {dateStr && <p className="text-sm font-medium">날짜 | {dateStr}</p>}
+          {timeStr && <p className="text-xs text-gray-500">시간 | {timeStr}</p>}
+          {!dateStr && <p className="text-sm font-medium text-gray-400">날짜 정보 없음</p>}
         </div>
         <span className={`text-xs px-2 py-0.5 rounded-full ${badgeStyle}`}>{badgeLabel}</span>
       </div>
 
       <p className="text-xs text-gray-400">사진 {group.photo_count}장</p>
 
-      {/* ── exact: 매칭된 일정 정보 표시 + 메모 + 확정 ── */}
+      {/* ── exact: 매칭된 일정 정보 표시 → 일정으로 이동 ── */}
       {group.match_type === 'exact' && (
         <>
           <div className="space-y-1">
@@ -201,31 +170,16 @@ function GroupCard({
               <p className="text-sm text-gray-600">👥 {group.people.map((p) => p.name).join(', ')}</p>
             )}
           </div>
-          {!confirmed && (
-            <textarea
-              value={memo}
-              onChange={(e) => onMemoChange(e.target.value)}
-              placeholder="메모 (선택)"
-              rows={2}
-              className="w-full border rounded px-2 py-1.5 text-sm resize-none"
-            />
-          )}
-          {error && <p className="text-red-500 text-xs">{error}</p>}
-          {confirmed ? (
-            <p className="text-green-600 text-sm font-medium">확정 완료</p>
-          ) : (
-            <button
-              onClick={() => onConfirm(group.schedule_id)}
-              disabled={confirming}
-              className="w-full bg-blue-500 text-white py-1.5 rounded text-sm disabled:opacity-50"
-            >
-              {confirming ? '확정 중...' : '확정'}
-            </button>
-          )}
+          <button
+            onClick={() => onViewSchedule(group.schedule_id)}
+            className="w-full bg-blue-500 text-white py-1.5 rounded text-sm"
+          >
+            일정 보기
+          </button>
         </>
       )}
 
-      {/* ── date_only: 후보 일정 목록 + 선택 + 신규 생성 ── */}
+      {/* ── date_only: 후보 일정 선택 → 일정으로 이동 or 신규 생성 ── */}
       {group.match_type === 'date_only' && (
         <>
           <p className="text-xs text-gray-500">같은 날짜의 일정 중 하나를 선택하거나 신규 생성하세요.</p>
@@ -248,40 +202,25 @@ function GroupCard({
             })}
           </div>
 
-          {selectedCandidateId && !confirmed && (
-            <>
-              <textarea
-                value={memo}
-                onChange={(e) => onMemoChange(e.target.value)}
-                placeholder="메모 (선택)"
-                rows={2}
-                className="w-full border rounded px-2 py-1.5 text-sm resize-none"
-              />
-              {error && <p className="text-red-500 text-xs">{error}</p>}
-              <button
-                onClick={() => onConfirm(selectedCandidateId)}
-                disabled={confirming}
-                className="w-full bg-blue-500 text-white py-1.5 rounded text-sm disabled:opacity-50"
-              >
-                {confirming ? '확정 중...' : '선택한 일정 확정'}
-              </button>
-            </>
-          )}
-
-          {confirmed && <p className="text-green-600 text-sm font-medium">확정 완료</p>}
-
-          {!confirmed && (
+          {selectedCandidateId && (
             <button
-              onClick={onAddSchedule}
-              className="w-full border border-blue-400 text-blue-500 py-1.5 rounded text-sm"
+              onClick={() => onViewSchedule(selectedCandidateId)}
+              className="w-full bg-blue-500 text-white py-1.5 rounded text-sm"
             >
-              + 신규 일정 생성
+              일정 보기
             </button>
           )}
+
+          <button
+            onClick={onAddSchedule}
+            className="w-full border border-blue-400 text-blue-500 py-1.5 rounded text-sm"
+          >
+            + 신규 일정 생성
+          </button>
         </>
       )}
 
-      {/* ── none: 안내 문구 + 신규 생성 ── */}
+      {/* ── none: 안내 문구 → 신규 생성 ── */}
       {group.match_type === 'none' && (
         <>
           <p className="text-sm text-gray-400">일치하는 일정이 없습니다.</p>

@@ -53,8 +53,8 @@ class ActivityRead(BaseModel):
 # ── 사진 업로드 분석 결과 스키마 ─────────────────────────────
 class PhotoGroupResult(BaseModel):
     group_index: int
-    match_type: str         # "exact" | "date_only" | "none" | "face_only"
-    # face_only 그룹은 EXIF가 없으므로 날짜·위치 정보가 없을 수 있음
+    match_type: str         # "exact" | "date_only" | "none"
+    # EXIF 없는 사진은 날짜·위치 정보가 없으므로 None
     date: Optional[Date] = None
     time: Optional[Time] = None
     latitude: Optional[float] = None
@@ -68,12 +68,10 @@ class PhotoGroupResult(BaseModel):
     people: Optional[list] = None
     # match_type == "date_only" 일 때: 같은 날짜 Schedule 목록
     candidates: Optional[list] = []
-    # 얼굴 매칭 결과 — ai_server /embed-group + /match 호출 결과
-    matched_people_ids: list[int] = []          # 매칭된 People ID 목록
-    unmatched_face_count: int = 0               # 미등록 얼굴 수
-    unmatched_embeddings: list[list[float]] = []  # 미등록 얼굴 임베딩 (향후 등록 용도)
-    self_detected: bool = False                 # 사용자 본인 얼굴 감지 여부
-    # match_type == "none" 일 때: 모두 None / 빈 배열
+    # 얼굴 매칭 결과 — ai_server POST /detect 호출 결과
+    matched_people_ids: list[int] = []   # 매칭된 People ID 목록
+    unmatched_face_count: int = 0        # 미등록 얼굴 수
+    self_detected: bool = False          # 사용자 본인 얼굴 감지 여부
 
 
 class PhotoUploadResponse(BaseModel):
