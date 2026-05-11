@@ -20,6 +20,14 @@ async def upload_photos_route(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
+    """
+    사진을 분석하여 EXIF 기반 그룹화 및 일정 매칭 결과를 반환한다.
+
+    - 사진은 1~10장으로 제한 (범위 위반 시 400 에러 반환)
+    - EXIF에서 날짜·GPS를 추출하여 날짜·반경 200m 기준으로 사진을 그룹화
+    - AI 서버로 얼굴 감지·매칭을 1회 일괄 요청하여 그룹별로 집계
+    - DB에는 저장하지 않으며 분석 결과만 반환
+    """
     if len(photos) == 0:
         raise HTTPException(status_code=400, detail="사진을 1장 이상 업로드해주세요")
     if len(photos) > 10:
@@ -45,6 +53,14 @@ async def confirm_schedule_route(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
+    """
+    일정을 완료 처리하고 활동 기록(ActivityLog)을 생성한다.
+
+    - Completed 상태이거나 미래 날짜의 일정은 확정 불가 (400 에러 반환)
+    - 얼굴 매칭으로 식별된 People을 일정 참여자와 합산하여 중복 없이 기록
+    - 사진이 첨부된 경우 EXIF GPS로 장소를 재확인 후 Cloudinary에 저장
+    - 같은 날 이미 카운트된 인물·장소는 중복 카운트하지 않음
+    """
     # UploadFile → bytes로 변환 후 서비스 레이어에 전달
     # 서비스는 파일 시스템을 알 필요 없이 bytes만 받음
     photo_bytes_list = []
@@ -71,6 +87,13 @@ async def verify_photo_route(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
+    """
+    사진의 EXIF 정보를 일정의 날짜·위치와 비교하여 일치 여부를 반환한다.
+
+    - 사진 EXIF 추출 실패 시 match=false로 반환 (예외 발생 없음)
+    - 날짜 일치 및 일정 장소 반경 200m 이내를 모두 만족해야 match=true
+    - 일정 장소가 설정되지 않은 경우 location_match=false
+    """
     photo_bytes = await photo.read()
     return verify_photo(db, schedule_id, photo_bytes, current_user)
 
@@ -81,6 +104,12 @@ def get_activity_route(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
+    """
+    특정 활동 로그의 상세 정보를 조회한다.
+
+    - 현재 유저 소유의 활동 로그만 조회 가능
+    - 로그를 찾을 수 없으면 404 에러 반환
+    """
     activity_log = get_activity(db, log_id, current_user)
     return {
         "status": 200,

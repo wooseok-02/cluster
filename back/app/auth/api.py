@@ -14,6 +14,12 @@ router = APIRouter(
 
 @router.post("/register", response_model=UserRead)
 def register(user_data: UserCreate, db: Session = Depends(get_db)):
+    """
+    이메일 중복 확인 후 새 계정을 생성하고 JWT 토큰을 발급한다.
+
+    - 이메일이 이미 존재하면 400 에러 반환
+    - 회원가입 성공 시 유저 정보와 액세스 토큰을 함께 반환
+    """
     new_user, token = register_user(db, user_data)
     return {
         "status" : 200,
@@ -28,6 +34,12 @@ def register(user_data: UserCreate, db: Session = Depends(get_db)):
 
 @router.post("/login", response_model=UserLoginResponse)
 def login(db: Session = Depends(get_db), form_data: OAuth2PasswordRequestForm = Depends()):
+    """
+    이메일·비밀번호를 검증하고 JWT 액세스 토큰을 발급한다.
+
+    - 이메일 또는 비밀번호 불일치 시 401 에러 반환
+    - OAuth2 Password Flow 형식으로 인증 처리
+    """
     user,token = login_user(db, form_data)
     return {
         "status" : 200,
@@ -44,6 +56,12 @@ def login(db: Session = Depends(get_db), form_data: OAuth2PasswordRequestForm = 
 
 @router.get("/me", response_model=UserMeResponse)
 def get_me(current_user: User = Depends(get_current_user)):
+    """
+    현재 로그인된 유저의 프로필 정보를 반환한다.
+
+    - JWT 토큰으로 현재 유저를 식별
+    - 프로필 사진 URL 포함
+    """
     return {
         "status": 200,
         "message": "User info retrieved successfully",
@@ -63,6 +81,13 @@ async def upload_my_photo(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    """
+    프로필 사진을 업로드하고 얼굴 임베딩을 갱신한다.
+
+    - AI 서버에 얼굴 임베딩 추출 요청 후 Cloudinary에 사진 저장
+    - 얼굴이 감지되지 않으면 400 에러 반환
+    - 임베딩과 사진 URL을 DB에 저장
+    """
     user = await update_user_photo(db, photo, current_user)
     return {
         "status": 200,
