@@ -57,7 +57,7 @@ export default function LoginPage() {
               value={form.email}
               onChange={handleChange}
               placeholder="이메일"
-              className="w-full pl-12 pr-4 py-3.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-[#5B40E4] focus:ring-2 focus:ring-[#5B40E4]/10 transition-all"
+              className="w-full pl-12 pr-4 py-3.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all"
               required
             />
           </div>
@@ -75,7 +75,7 @@ export default function LoginPage() {
               value={form.password}
               onChange={handleChange}
               placeholder="비밀번호"
-              className="w-full pl-12 pr-4 py-3.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-[#5B40E4] focus:ring-2 focus:ring-[#5B40E4]/10 transition-all"
+              className="w-full pl-12 pr-4 py-3.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all"
               required
             />
           </div>
@@ -85,7 +85,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-[#5B40E4] hover:bg-[#4A32C3] text-white font-semibold py-3.5 rounded-xl text-base transition-colors mt-2 disabled:opacity-50"
+            className="w-full bg-primary hover:bg-[#4A32C3] text-white font-semibold py-3.5 rounded-xl text-base transition-colors mt-2 disabled:opacity-50"
           >
             {loading ? '로그인 중...' : '로그인'}
           </button>
@@ -93,7 +93,7 @@ export default function LoginPage() {
 
         <p className="text-sm text-gray-600">
           계정이 없으신가요?{' '}
-          <Link to="/register" className="text-[#5B40E4] font-semibold hover:underline">
+          <Link to="/register" className="text-primary font-semibold hover:underline">
             회원가입
           </Link>
         </p>
