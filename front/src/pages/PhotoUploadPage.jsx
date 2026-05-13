@@ -12,9 +12,6 @@ export default function PhotoUploadPage() {
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState('')
 
-  // date_only 그룹별 선택된 후보 일정
-  const [selectedCandidates, setSelectedCandidates] = useState({}) // group_index → schedule_id
-
   const handleFileChange = (e) => {
     const selected = Array.from(e.target.files)
     if (selected.length > 10) {
@@ -24,7 +21,6 @@ export default function PhotoUploadPage() {
     setFiles(selected)
     setUploadError('')
     setResults(null)
-    setSelectedCandidates({})
   }
 
   const handleUpload = async () => {
@@ -104,10 +100,6 @@ export default function PhotoUploadPage() {
             <GroupCard
               key={group.group_index}
               group={group}
-              selectedCandidateId={selectedCandidates[group.group_index] ?? null}
-              onSelectCandidate={(scheduleId) =>
-                setSelectedCandidates((prev) => ({ ...prev, [group.group_index]: scheduleId }))
-              }
               onViewSchedule={handleViewSchedule}
               onAddSchedule={() => handleAddSchedule(group)}
             />
@@ -126,11 +118,7 @@ export default function PhotoUploadPage() {
 }
 
 // ── 그룹 카드 ─────────────────────────────────────────────────
-function GroupCard({
-  group,
-  selectedCandidateId, onSelectCandidate,
-  onViewSchedule, onAddSchedule,
-}) {
+function GroupCard({ group, onViewSchedule, onAddSchedule }) {
   const dateStr = group.date ? group.date.replace(/-/g, ' - ') : ''
   const timeStr = group.time ? String(group.time).slice(0, 5) : ''
 
@@ -185,31 +173,17 @@ function GroupCard({
           <p className="text-xs text-gray-500">같은 날짜의 일정 중 하나를 선택하거나 신규 생성하세요.</p>
 
           <div className="space-y-2">
-            {group.candidates?.map((c) => {
-              const isSelected = selectedCandidateId === c.schedule_id
-              return (
-                <button
-                  key={c.schedule_id}
-                  onClick={() => onSelectCandidate(isSelected ? null : c.schedule_id)}
-                  className={`w-full text-left p-3 rounded border text-sm transition-colors ${
-                    isSelected ? 'border-blue-500 bg-blue-50' : 'border-gray-200 bg-white'
-                  }`}
-                >
-                  <p className="font-medium">{c.title}</p>
-                  {c.place_name && <p className="text-xs text-gray-500 mt-0.5">📍 {c.place_name}</p>}
-                </button>
-              )
-            })}
+            {group.candidates?.map((c) => (
+              <button
+                key={c.schedule_id}
+                onClick={() => onViewSchedule(c.schedule_id)}
+                className="w-full text-left p-3 rounded border text-sm border-gray-200 bg-white hover:border-blue-400 transition-colors"
+              >
+                <p className="font-medium">{c.title}</p>
+                {c.place_name && <p className="text-xs text-gray-500 mt-0.5">📍 {c.place_name}</p>}
+              </button>
+            ))}
           </div>
-
-          {selectedCandidateId && (
-            <button
-              onClick={() => onViewSchedule(selectedCandidateId)}
-              className="w-full bg-blue-500 text-white py-1.5 rounded text-sm"
-            >
-              일정 보기
-            </button>
-          )}
 
           <button
             onClick={onAddSchedule}
