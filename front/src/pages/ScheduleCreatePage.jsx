@@ -1,7 +1,8 @@
 // 일정 생성 페이지 — 검색 필터로 People·Place 선택, 등록 후 복귀 시 폼 상태 복원
 import { useEffect, useState } from 'react'
-import { useNavigate, useSearchParams, useLocation } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { createSchedule, confirmSchedule } from '../api/schedule'
+import { takePendingFiles } from '../lib/pendingPhotos'
 import { getPeopleList } from '../api/people'
 import { getPlaceList } from '../api/place'
 
@@ -10,9 +11,9 @@ const DRAFT_KEY = 'scheduleFormDraft'
 export default function ScheduleCreatePage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const location = useLocation()
-  const pendingFiles = location.state?.pendingFiles ?? []
   const initialDate = searchParams.get('date') || ''
+  // mount 시 한 번만 읽고 저장소 비움 — 다른 경로에서 진입 시 빈 배열
+  const [pendingFiles] = useState(() => takePendingFiles())
 
   const [form, setForm] = useState({ title: '', date: initialDate, start_time: '', end_time: '', memo: '' })
   const [selectedPeopleIds, setSelectedPeopleIds] = useState([])

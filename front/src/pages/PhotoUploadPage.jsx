@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { uploadPhotos } from '../api/activity'
+import { setPendingFiles } from '../lib/pendingPhotos'
 
 export default function PhotoUploadPage() {
   const navigate = useNavigate()
@@ -60,11 +61,12 @@ export default function PhotoUploadPage() {
     }
     sessionStorage.setItem('scheduleFormDraft', JSON.stringify(draft))
 
-    // 이 그룹에 속하는 파일만 추출 — navigate state로 전달 (File 객체는 JSON 직렬화 불가)
-    const pendingFiles = (group.photo_indices ?? [])
+    // 이 그룹에 속하는 파일만 추출 — 모듈 저장소에 보관 (File은 history state 크기 제한 초과)
+    const groupFiles = (group.photo_indices ?? [])
       .map((i) => files[i])
       .filter(Boolean)
-    navigate('/schedule/create', { state: { pendingFiles } })
+    setPendingFiles(groupFiles)
+    navigate('/schedule/create')
   }
 
   return (
