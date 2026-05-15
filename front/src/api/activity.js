@@ -10,9 +10,10 @@ export const uploadPhotos = async (files) => {
 }
 
 // 일정 확정 → ActivityLog 생성 (Schedule → Completed 전환)
-export const confirmSchedule = async (scheduleId, memo = null) => {
+export const confirmSchedule = async (scheduleId, memo = null, photos = []) => {
   const formData = new FormData()
   if (memo) formData.append('memo', memo)
+  photos.forEach((file) => formData.append('photos', file))
   const response = await axiosInstance.post(`/activity/confirm/${scheduleId}`, formData)
   return response.data
 }

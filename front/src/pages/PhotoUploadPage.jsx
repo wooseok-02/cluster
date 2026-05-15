@@ -59,7 +59,12 @@ export default function PhotoUploadPage() {
       selectedPlaceId: group.place_id ?? null,             // 사진 GPS로 매칭된 장소 자동 입력
     }
     sessionStorage.setItem('scheduleFormDraft', JSON.stringify(draft))
-    navigate('/schedule/create')
+
+    // 이 그룹에 속하는 파일만 추출 — navigate state로 전달 (File 객체는 JSON 직렬화 불가)
+    const pendingFiles = (group.photo_indices ?? [])
+      .map((i) => files[i])
+      .filter(Boolean)
+    navigate('/schedule/create', { state: { pendingFiles } })
   }
 
   return (

@@ -60,6 +60,7 @@ class PhotoGroupResult(BaseModel):
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     photo_count: int        # 이 그룹의 사진 수
+    photo_indices: list[int] = []  # 업로드 파일 배열에서 이 그룹에 속하는 인덱스 목록
     # match_type == "exact" 일 때
     schedule_id: Optional[int] = None
     schedule_title: Optional[str] = None
