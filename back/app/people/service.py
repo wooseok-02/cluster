@@ -6,6 +6,7 @@ from auth.model import User
 from auth.token import get_current_user
 from people.schema import PersonCreate
 from activity.model import ActivityLog, log_people
+from schedule.model import Schedule
 from config.config import settings
 import asyncio
 import cloudinary.uploader
@@ -67,6 +68,13 @@ def get_people(db: Session, people_id , current_user : User):
         log_people, ActivityLog.log_id == log_people.c.log_id).filter(
             log_people.c.people_id == people_id
         ).all()
+
+    # ActivityLog와 날짜가 일치하는 Schedule 매칭
+    schedules = db.query(Schedule).filter(
+        Schedule.user_id == current_user.id,
+    ).all()
+    schedule_by_date = {s.start_time.date(): s.id for s in schedules}
+
     return {
         "name" : people_info.name,
         "age" : people_info.age,
@@ -75,7 +83,10 @@ def get_people(db: Session, people_id , current_user : User):
         "photo_url" : people_info.photo_url,
         "count" : people_info.count,
         "status" : people_info.status,
-        "logs" : [{"log_id" : i.log_id, "date" : i.date}for i in log]
+        "logs" : [
+            {"log_id": i.log_id, "date": i.date, "schedule_id": schedule_by_date.get(i.date)}
+            for i in log
+        ]
     }
 
 async def update_person_photo(db: Session, people_id: int, photo: UploadFile, current_user: User):

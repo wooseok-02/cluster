@@ -86,8 +86,8 @@ export default function ScheduleCreatePage() {
         place_id: selectedPlaceId,
         people_ids: selectedPeopleIds,
       })
-      // 사진 업로드 플로우에서 넘어온 경우, 일정이 Planned 상태일 때만 사진과 함께 즉시 확정
-      if (pendingFiles.length > 0 && result.data?.status === 'Planned') {
+      // 사진 업로드 플로우에서 넘어온 경우 사진과 함께 즉시 확정
+      if (pendingFiles.length > 0) {
         try {
           await confirmSchedule(result.data.id, null, pendingFiles)
         } catch {

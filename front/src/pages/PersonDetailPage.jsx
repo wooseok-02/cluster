@@ -124,9 +124,12 @@ export default function PersonDetailPage() {
           ) : (
             <div className="space-y-3">
               {person.logs.slice(0, 3).map((log) => (
-                <div
+                <button
                   key={log.log_id}
-                  className="w-full flex items-center gap-4 bg-white rounded-xl p-3 border border-gray-200"
+                  type="button"
+                  disabled={!log.schedule_id}
+                  onClick={() => log.schedule_id && navigate(`/schedule/${log.schedule_id}`)}
+                  className="w-full flex items-center gap-4 bg-white rounded-xl p-3 border border-gray-200 disabled:opacity-60"
                 >
                   <div className="w-16 h-16 rounded-lg bg-gray-100 flex items-center justify-center text-gray-400 text-xs">
                     📅
@@ -134,10 +137,12 @@ export default function PersonDetailPage() {
                   <div className="flex-1 text-left">
                     <p className="text-sm text-gray-500">{log.date}</p>
                   </div>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-gray-400">
-                    <path d="M9 18l6-6-6-6" />
-                  </svg>
-                </div>
+                  {log.schedule_id && (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-gray-400">
+                      <path d="M9 18l6-6-6-6" />
+                    </svg>
+                  )}
+                </button>
               ))}
             </div>
           )}

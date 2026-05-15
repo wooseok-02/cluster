@@ -97,12 +97,16 @@ export default function PlaceDetailPage() {
             {place.logs.slice(0, 3).map((log, index) => (
               <div key={log.log_id} className="flex items-center gap-3">
                 <div className={`w-2 h-2 rounded-full ${index === 0 ? 'bg-[#5B40E4]' : 'bg-[#5B40E4]/40'}`} />
-                <button
-                  onClick={() => navigate(`/schedule/${log.log_id}`)}
-                  className="text-gray-900 text-sm"
-                >
-                  {log.date}
-                </button>
+                {log.schedule_id ? (
+                  <button
+                    onClick={() => navigate(`/schedule/${log.schedule_id}`)}
+                    className="text-gray-900 text-sm"
+                  >
+                    {log.date}
+                  </button>
+                ) : (
+                  <span className="text-gray-900 text-sm">{log.date}</span>
+                )}
               </div>
             ))}
           </div>
