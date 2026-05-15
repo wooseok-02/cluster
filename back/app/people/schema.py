@@ -40,6 +40,7 @@ class PersonName(BaseModel) :
 class PersonLog(BaseModel) :
     log_id : int
     date : date
+    schedule_id : Optional[int] = None
 
 class PersonLoadDetail(BaseModel) :
     name : str

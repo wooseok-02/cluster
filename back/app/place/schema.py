@@ -13,6 +13,7 @@ class PlaceCreate(BaseModel):
 class PlaceLog(BaseModel) :
     log_id : int
     date : date
+    schedule_id : Optional[int] = None
 
 class PlaceData(BaseModel):
     model_config = ConfigDict(from_attributes=True)

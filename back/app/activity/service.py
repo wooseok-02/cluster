@@ -280,13 +280,6 @@ def confirm_schedule(
             detail="Schedule not found"
         )
 
-    # 해당 스케쥴이 이미 확정 상태일 경우 에러 처리
-    if schedule.status == "Completed":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="이미 완료된 일정입니다"
-        )
-
     #미래 일정일 경우 임의 complete 막기
     if schedule.start_time.date() > date.today():
         raise HTTPException(

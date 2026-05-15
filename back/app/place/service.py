@@ -6,6 +6,7 @@ from place.schema import PlaceCreate
 import httpx
 from config.config import settings
 from activity.model import ActivityLog
+from schedule.model import Schedule
 from utils.geo import _haversine
 from utils.exif import _extract_info_from_exif
 
@@ -78,6 +79,23 @@ def get_place(db: Session, place_id: int, current_user: User):
     log = db.query(ActivityLog).filter(
         ActivityLog.place_id == place_id
     ).all()
+
+    # 이 장소에 연결된 Schedule 목록을 한 번만 조회 후 날짜로 매칭
+    schedules = db.query(Schedule).filter(
+        Schedule.user_id == current_user.id,
+        Schedule.place_id == place_id,
+    ).all()
+    schedule_by_date = {s.start_time.date(): s.id for s in schedules}
+
+    logs_data = [
+        {
+            "log_id": i.log_id,
+            "date": i.date,
+            "schedule_id": schedule_by_date.get(i.date),
+        }
+        for i in log
+    ]
+
     return {
         "id": place.id,
         "name": place.name,
@@ -85,7 +103,7 @@ def get_place(db: Session, place_id: int, current_user: User):
         "latitude": place.latitude,
         "visit_count": place.visit_count,
         "status": place.status,
-        "logs": [{"log_id": i.log_id, "date": i.date} for i in log]
+        "logs": logs_data
     }
 
 def get_placeList(db: Session, current_user: User, lat: float = None, lon: float = None):
