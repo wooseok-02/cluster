@@ -7,6 +7,14 @@
   --color-status-new: #4C6FFF;
   --color-status-best: #FF4B8B;
   --color-status-old: #9CA3AF;
+  --color-people-status-old: #8B8B8B;
+  --color-people-status-new: #F5C84B;
+  --color-people-status-normal: #32B768;
+  --color-people-status-best: #613FE7;
+  --color-relation-family: #FF8BB3;
+  --color-relation-friend: #5A8DEE;
+  --color-relation-work: #37B778;
+  --color-relation-etc: #9C8BFF;
   --color-gray-border: #E5E7EB;
   --color-text-main: #111827;
   --color-text-sub: #6B7280;
