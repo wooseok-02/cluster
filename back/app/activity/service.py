@@ -227,6 +227,7 @@ async def upload_photos(db: Session, photos: list, current_user: User) -> dict:
         match_result["unmatched_face_count"] = unmatched_face_count
         match_result["unmatched_embeddings"] = []
         match_result["self_detected"] = self_detected
+        match_result["photo_indices"] = [photo["photo_index"] for photo in group]
         results.append(match_result)
 
     # EXIF 없는 사진: 각각 독립 그룹
@@ -238,6 +239,7 @@ async def upload_photos(db: Session, photos: list, current_user: User) -> dict:
             "latitude": None,
             "longitude": None,
             "photo_count": 1,
+            "photo_indices": [photo["photo_index"]],
             "schedule_id": None,
             "schedule_title": None,
             "place_id": None,

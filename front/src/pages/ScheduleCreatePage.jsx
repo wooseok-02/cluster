@@ -1,7 +1,7 @@
 // 일정 생성 페이지 — 검색 필터로 People·Place 선택, 등록 후 복귀 시 폼 상태 복원
 import { useEffect, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
-import { createSchedule } from '../api/schedule'
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom'
+import { createSchedule, confirmSchedule } from '../api/schedule'
 import { getPeopleList } from '../api/people'
 import { getPlaceList } from '../api/place'
 
@@ -10,6 +10,8 @@ const DRAFT_KEY = 'scheduleFormDraft'
 export default function ScheduleCreatePage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
+  const location = useLocation()
+  const pendingFiles = location.state?.pendingFiles ?? []
   const initialDate = searchParams.get('date') || ''
 
   const [form, setForm] = useState({ title: '', date: initialDate, start_time: '', end_time: '', memo: '' })
@@ -75,7 +77,7 @@ export default function ScheduleCreatePage() {
     setError('')
     setLoading(true)
     try {
-      await createSchedule({
+      const result = await createSchedule({
         title: form.title,
         date: form.date,
         start_time: form.start_time + ':00',
@@ -84,6 +86,14 @@ export default function ScheduleCreatePage() {
         place_id: selectedPlaceId,
         people_ids: selectedPeopleIds,
       })
+      // 사진 업로드 플로우에서 넘어온 경우, 일정이 Planned 상태일 때만 사진과 함께 즉시 확정
+      if (pendingFiles.length > 0 && result.data?.status === 'Planned') {
+        try {
+          await confirmSchedule(result.data.id, null, pendingFiles)
+        } catch {
+          // 확정 실패 시 일정은 유지되며, 사용자가 상세 화면에서 직접 확정 가능
+        }
+      }
       navigate('/calendar')
     } catch (err) {
       const detail = err.response?.data?.detail
