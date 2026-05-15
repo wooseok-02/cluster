@@ -9,7 +9,7 @@ import BottomTabBar from '../components/BottomTabBar'
 
 export default function PeoplePage() {
   const navigate = useNavigate()
-  const { user } = useAuth()
+  const { user, updateUserPhoto } = useAuth()
   const [people, setPeople] = useState([])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
@@ -35,6 +35,7 @@ export default function PeoplePage() {
     try {
       const res = await updateMyPhoto(file)
       setMyPhotoUrl(res.photo_url)
+      updateUserPhoto(res.photo_url)
     } catch {
       alert('사진 업로드에 실패했습니다.')
     } finally {

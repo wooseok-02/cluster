@@ -34,8 +34,13 @@ export function AuthProvider({ children }) {
     setUser(null)
   }
 
+  // 프로필 사진 URL만 갱신
+  const updateUserPhoto = (photoUrl) => {
+    setUser((prev) => ({ ...prev, photo_url: photoUrl }))
+  }
+
   return (
-    <AuthContext.Provider value={{ user, loading, loginAction, logoutAction }}>
+    <AuthContext.Provider value={{ user, loading, loginAction, logoutAction, updateUserPhoto }}>
       {children}
     </AuthContext.Provider>
   )
