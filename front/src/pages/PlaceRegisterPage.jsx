@@ -55,100 +55,106 @@ export default function PlaceRegisterPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white flex flex-col">
-      {/* Header */}
-      <div className="flex items-center px-4 py-3 border-b border-gray-200">
-        <button onClick={() => navigate(from === 'schedule' ? '/schedule/create' : '/map')} className="p-2 -ml-2">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M15 18l-6-6 6-6" />
+    <div className="mx-auto flex min-h-screen w-full max-w-[448px] flex-col bg-white !px-[30px] !pt-[70px] !pb-[35px]">
+      <header className="flex h-[30px] shrink-0 items-center">
+        <button
+          type="button"
+          onClick={() => navigate(from === 'schedule' ? '/schedule/create' : '/map')}
+          className="flex h-[30px] w-[30px] items-center justify-center text-black"
+          aria-label="Go back"
+        >
+          <svg width="30" height="30" viewBox="0 0 30 30" fill="none" aria-hidden="true">
+            <path d="M18.75 22.5L11.25 15L18.75 7.5" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </button>
-        <h1 className="flex-1 text-center font-medium text-gray-900">장소 등록</h1>
-        <div className="w-10" />
-      </div>
+        <h1 className="flex-1 text-center text-base font-semibold leading-4 text-black">장소 등록</h1>
+        <div className="h-[30px] w-[30px]" />
+      </header>
 
-      {/* Search */}
-      <div className="p-4">
-        <div className="flex gap-2">
+      <main className="flex flex-1 flex-col">
+        <section className="!mt-[50px] flex gap-[10px]">
           <input
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="장소 검색"
-            className="flex-1 px-4 py-3 bg-white border border-gray-200 rounded-xl text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#5B40E4]/20"
+            className="h-10 min-w-0 flex-1 rounded-[10px] border border-gray-300 bg-white !px-[15px] text-sm leading-4 text-text-main placeholder:text-gray-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/10"
           />
           <button
+            type="button"
             onClick={handleSearch}
             disabled={searchLoading}
-            className="px-6 py-3 bg-[#5B40E4] text-white rounded-xl font-medium disabled:opacity-50"
+            className="flex h-10 w-[61px] shrink-0 items-center justify-center rounded-[10px] bg-primary text-sm font-bold leading-4 text-white disabled:opacity-50"
           >
             {searchLoading ? '검색 중' : '검색'}
           </button>
-        </div>
-      </div>
+        </section>
 
-      {error && <p className="text-red-500 text-sm px-4 mb-2">{error}</p>}
+        {error && <p className="!mt-3 text-sm text-red-500">{error}</p>}
 
-      {/* Results */}
-      {searched && results.length === 0 && (
-        <p className="text-gray-400 text-sm px-4 mb-3">검색 결과가 없습니다.</p>
-      )}
-      {results.length > 0 && (
-        <div className="flex-1 px-4 space-y-3">
-          {results.map((place, idx) => (
-            <button
-              key={idx}
-              onClick={() => setSelectedPlace(place)}
-              className={`w-full text-left p-4 rounded-xl border transition-colors ${
-                selectedPlace?.name === place.name
-                  ? 'bg-[#5B40E4]/10 border-[#5B40E4]'
-                  : 'bg-white border-gray-200'
-              }`}
-            >
-              <p className="font-medium text-gray-900">{place.name}</p>
-              {place.category_name && (
-                <p className="text-sm text-[#5B40E4]">{place.category_name}</p>
+        {searched && results.length === 0 && (
+          <p className="!mt-[30px] text-sm text-gray-400">검색 결과가 없습니다.</p>
+        )}
+
+        {results.length > 0 && (
+          <section className="!mt-[29px] flex flex-col gap-[10px]">
+            {results.map((place, idx) => {
+              const isSelected = selectedPlace?.name === place.name
+
+              return (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => setSelectedPlace(place)}
+                  className={`w-full rounded-[10px] border text-left transition-colors ${
+                    isSelected
+                      ? 'border-primary bg-primary-light !px-[15px] !py-[10px]'
+                      : 'border-gray-300 bg-white !px-[15px] !py-[10px]'
+                  }`}
+                >
+                  <p className="truncate text-sm leading-4 text-black">{place.name}</p>
+                  {place.category_name && (
+                    <p className="!mt-[2px] truncate text-[10px] leading-4 text-primary">{place.category_name}</p>
+                  )}
+                </button>
+              )
+            })}
+          </section>
+        )}
+
+        {selectedPlace && (
+          <section className="!mt-[27px]">
+            <p className="text-xs leading-4 text-gray-500">선택된 장소: {selectedPlace.name}</p>
+            <div className="!mt-2 h-[124px] overflow-hidden rounded-[10px] bg-gray-100">
+              {!isLoaded ? (
+                <div className="flex h-full w-full items-center justify-center">
+                  <p className="text-sm text-gray-400">지도 로딩 중...</p>
+                </div>
+              ) : (
+                <GoogleMap
+                  mapContainerStyle={{ width: '100%', height: '100%' }}
+                  center={{ lat: selectedPlace.latitude, lng: selectedPlace.longitude }}
+                  zoom={16}
+                >
+                  <Marker position={{ lat: selectedPlace.latitude, lng: selectedPlace.longitude }} />
+                </GoogleMap>
               )}
-            </button>
-          ))}
-        </div>
-      )}
+            </div>
+          </section>
+        )}
 
-      {/* Selected Place Map Preview */}
-      {selectedPlace && (
-        <div className="px-4 py-4 border-t border-gray-200">
-          <p className="text-sm text-gray-500 mb-2">선택된 장소: {selectedPlace.name}</p>
-          <div className="rounded-xl overflow-hidden border border-gray-200 mb-4" style={{ height: '128px' }}>
-            {!isLoaded ? (
-              <div className="w-full h-full bg-gray-100 flex items-center justify-center">
-                <p className="text-gray-400 text-sm">지도 로딩 중...</p>
-              </div>
-            ) : (
-              <GoogleMap
-                mapContainerStyle={{ width: '100%', height: '100%' }}
-                center={{ lat: selectedPlace.latitude, lng: selectedPlace.longitude }}
-                zoom={16}
-              >
-                <Marker position={{ lat: selectedPlace.latitude, lng: selectedPlace.longitude }} />
-              </GoogleMap>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Confirm Button */}
-      {selectedPlace && (
-        <div className="p-4 pb-8">
+        {selectedPlace && (
           <button
+            type="button"
             onClick={handleSave}
             disabled={saveLoading}
-            className="w-full py-4 bg-[#5B40E4] text-white rounded-xl font-medium disabled:opacity-50"
+            className="!mt-auto flex h-[46px] w-full items-center justify-center rounded-[10px] bg-primary text-base font-semibold leading-4 text-white disabled:opacity-50"
           >
             {saveLoading ? '저장 중...' : '확인'}
           </button>
-        </div>
-      )}
+        )}
+      </main>
     </div>
   )
 }

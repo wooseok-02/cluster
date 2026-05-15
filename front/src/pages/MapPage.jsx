@@ -6,24 +6,68 @@ import BottomTabBar from '../components/BottomTabBar'
 
 const MAP_CENTER = { lat: 37.5665, lng: 126.9780 }
 
-const STATUS_COLOR = {
-  new: '#9CA3AF',
-  regular: '#3B82F6',
-  best: '#EC4899',
-  old: '#9CA3AF',
+const STATUS_META = {
+  new: {
+    label: 'New',
+    dotClassName: 'bg-people-status-new',
+    token: '--color-people-status-new',
+    baseMarkerSize: 22,
+    maxMarkerGrowth: 5,
+  },
+  normal: {
+    label: 'Normal',
+    dotClassName: 'bg-people-status-normal',
+    token: '--color-people-status-normal',
+    baseMarkerSize: 22,
+    maxMarkerGrowth: 5,
+  },
+  regular: {
+    label: 'Normal',
+    dotClassName: 'bg-people-status-normal',
+    token: '--color-people-status-normal',
+    baseMarkerSize: 22,
+    maxMarkerGrowth: 5,
+  },
+  best: {
+    label: 'Best',
+    dotClassName: 'bg-people-status-best',
+    token: '--color-people-status-best',
+    baseMarkerSize: 30,
+    maxMarkerGrowth: 6,
+  },
+  old: {
+    label: 'Old',
+    dotClassName: 'bg-people-status-old',
+    token: '--color-people-status-old',
+    baseMarkerSize: 14,
+    maxMarkerGrowth: 4,
+  },
 }
 
-const STATUS_LABEL = {
-  new: 'New',
-  regular: 'Regular',
-  best: 'Best',
-  old: 'Old',
+const getStatusMeta = (status) => {
+  return STATUS_META[status] || STATUS_META.old
 }
 
-const getMarkerIcon = (status) => {
-  const color = STATUS_COLOR[status] || STATUS_COLOR.new
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24">
-    <circle cx="12" cy="12" r="9" fill="${color}" stroke="white" stroke-width="2"/>
+const getCssToken = (token) => {
+  if (typeof document === 'undefined') return 'gray'
+  return getComputedStyle(document.documentElement).getPropertyValue(token).trim() || 'gray'
+}
+
+const getVisitCount = (place) => Number(place.visit_count ?? place.count ?? 0) || 0
+
+const getMarkerSize = (place) => {
+  const meta = getStatusMeta(place.status)
+  const growth = Math.min(getVisitCount(place), 12) * (meta.maxMarkerGrowth / 12)
+  return Math.round(meta.baseMarkerSize + growth)
+}
+
+const getMarkerIcon = (place) => {
+  const color = getCssToken(getStatusMeta(place.status).token)
+  const size = getMarkerSize(place)
+  const center = size / 2
+  const radius = Math.max(4, center - 3)
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}">
+    <circle cx="${center}" cy="${center}" r="${radius}" fill="${color}" stroke="white" stroke-width="2"/>
   </svg>`
   return { url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}` }
 }
@@ -57,20 +101,18 @@ export default function MapPage() {
   const hasPlaces = places.length > 0
 
   return (
-    <div className="min-h-screen bg-white pb-24">
-      {/* Header */}
-      <div className="px-5 pt-5 pb-3">
-        <h1 className="text-2xl font-bold text-gray-900">cluster</h1>
-      </div>
+    <div className="mx-auto min-h-screen w-full max-w-[448px] bg-white !pb-[125px]">
+      <header className="!px-[30px] !pt-[70px] !pb-[30px]">
+        <h1 className="text-3xl font-bold leading-none text-text-main">cluster</h1>
+      </header>
 
-      {error && <p className="text-red-500 text-sm px-5 mb-2">{error}</p>}
+      {error && <p className="!px-[30px] !pb-3 text-sm text-red-500">{error}</p>}
 
-      {/* Map */}
-      <div className="px-4 mb-4">
-        <div className="relative rounded-2xl overflow-hidden" style={{ height: '240px' }}>
+      <section className="!px-[30px]">
+        <div className="relative h-[248px] overflow-hidden rounded-[10px] bg-gray-100">
           {!isLoaded ? (
-            <div className="w-full h-full bg-gray-100 flex items-center justify-center">
-              <p className="text-gray-400 text-sm">지도 로딩 중...</p>
+            <div className="flex h-full w-full items-center justify-center">
+              <p className="text-sm text-gray-400">지도 로딩 중...</p>
             </div>
           ) : (
             <GoogleMap
@@ -82,7 +124,7 @@ export default function MapPage() {
                 <Marker
                   key={place.id}
                   position={{ lat: place.latitude, lng: place.longitude }}
-                  icon={getMarkerIcon(place.status)}
+                  icon={getMarkerIcon(place)}
                   title={place.name}
                   onClick={() => navigate(`/place/${place.id}`)}
                 />
@@ -90,48 +132,43 @@ export default function MapPage() {
             </GoogleMap>
           )}
         </div>
-      </div>
+      </section>
 
-      {/* Place List */}
       {loading ? (
-        <p className="text-gray-400 text-sm px-5">불러오는 중...</p>
+        <p className="!px-[30px] !pt-5 text-sm text-gray-400">불러오는 중...</p>
       ) : !hasPlaces ? (
-        <div className="flex flex-col items-center justify-center py-16">
-          <p className="text-gray-500 mb-2">등록된 장소가 없습니다.</p>
+        <div className="flex flex-col items-center justify-center !px-[30px] !py-16 text-center">
+          <p className="!mb-2 text-gray-500">등록된 장소가 없습니다.</p>
           <button
+            type="button"
             onClick={() => navigate('/place/register')}
-            className="text-[#5B40E4] font-medium"
+            className="font-medium text-primary"
           >
             첫 번째 장소 등록하기
           </button>
         </div>
       ) : (
-        <div className="px-4 flex flex-col gap-3">
+        <section className="flex flex-col gap-[10px] !px-[30px] !pt-5">
           {places.map(place => (
             <button
               key={place.id}
+              type="button"
               onClick={() => navigate(`/place/${place.id}`)}
-              className="w-full bg-white rounded-2xl border border-gray-200 px-5 py-4 flex items-center justify-between text-left"
+              className="flex w-full items-center justify-between rounded-[10px] border border-people-status-old bg-white !px-5 !py-[15px] text-left"
             >
-              <div className="flex flex-col gap-1">
-                <p className="font-semibold text-gray-900 text-sm">{place.name}</p>
-                <p className="text-xs text-gray-400">방문 {place.visit_count}회</p>
+              <div className="min-w-0 flex flex-col gap-[5px]">
+                <p className="truncate text-sm font-semibold leading-normal text-black">{place.name}</p>
+                <p className="text-xs leading-normal text-gray-500">방문 {getVisitCount(place)}회</p>
               </div>
-              <div className="flex items-center gap-1.5 shrink-0">
-                <span
-                  className="w-2 h-2 rounded-full"
-                  style={{ backgroundColor: STATUS_COLOR[place.status] || STATUS_COLOR.new }}
-                />
-                <span
-                  className="text-sm font-medium"
-                  style={{ color: STATUS_COLOR[place.status] || STATUS_COLOR.new }}
-                >
-                  {STATUS_LABEL[place.status] || place.status}
+              <div className="flex shrink-0 items-center gap-[5px] !pl-4">
+                <span className={`h-[9px] w-[9px] rounded-full ${getStatusMeta(place.status).dotClassName}`} />
+                <span className="min-w-[37px] text-xs leading-normal text-gray-500">
+                  {getStatusMeta(place.status).label}
                 </span>
               </div>
             </button>
           ))}
-        </div>
+        </section>
       )}
 
       <BottomTabBar />

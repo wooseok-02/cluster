@@ -10,6 +10,7 @@ import PersonDetailPage from './pages/PersonDetailPage'
 import MapPage from './pages/MapPage'
 import PlaceRegisterPage from './pages/PlaceRegisterPage'
 import PlaceDetailPage from './pages/PlaceDetailPage'
+import PlaceVisitsPage from './pages/PlaceVisitsPage'
 import CalendarPage from './pages/CalendarPage'
 import ScheduleCreatePage from './pages/ScheduleCreatePage'
 import ScheduleDetailPage from './pages/ScheduleDetailPage'
@@ -40,6 +41,7 @@ function AppRoutes() {
       <Route path="/people/:id" element={<PrivateRoute><PersonDetailPage /></PrivateRoute>} />
       <Route path="/map" element={<PrivateRoute><MapPage /></PrivateRoute>} />
       <Route path="/place/register" element={<PrivateRoute><PlaceRegisterPage /></PrivateRoute>} />
+      <Route path="/place/:id/visits" element={<PrivateRoute><PlaceVisitsPage /></PrivateRoute>} />
       <Route path="/place/:id" element={<PrivateRoute><PlaceDetailPage /></PrivateRoute>} />
       <Route path="/calendar" element={<PrivateRoute><CalendarPage /></PrivateRoute>} />
       <Route path="/schedule/create" element={<PrivateRoute><ScheduleCreatePage /></PrivateRoute>} />

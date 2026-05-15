@@ -2,6 +2,9 @@ import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { registerPerson } from '../api/people'
 
+const inputClassName =
+  'h-10 w-full rounded-[10px] border border-gray-300 bg-white !px-[10px] text-xs leading-4 text-text-main placeholder:text-gray-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/10'
+
 export default function PersonRegisterPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -46,104 +49,103 @@ export default function PersonRegisterPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white pb-24">
-      <header className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-center relative">
+    <div className="mx-auto flex min-h-screen w-full max-w-[448px] flex-col bg-white !px-[30px] !pt-[67px] !pb-[35px]">
+      <header className="relative flex h-[30px] shrink-0 items-center justify-center">
         <button
+          type="button"
           onClick={() => navigate(from === 'schedule' ? '/schedule/create' : '/people')}
-          className="absolute left-6 text-gray-700"
+          className="absolute left-0 flex h-[30px] w-[30px] items-center justify-center text-black"
           aria-label="Go back"
         >
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-            <path d="M15 18L9 12L15 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          <svg width="30" height="30" viewBox="0 0 30 30" fill="none" aria-hidden="true">
+            <path d="M18.75 22.5L11.25 15L18.75 7.5" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </button>
-        <h2 className="text-base font-semibold text-gray-900">새로운 사람 추가</h2>
+        <h2 className="text-center text-base font-semibold leading-4 text-black">새로운 사람 추가</h2>
       </header>
 
-      <div className="px-6 py-8 flex flex-col items-center">
-        {/* 사진 업로드 */}
-        <label className="cursor-pointer mb-8 flex flex-col items-center gap-2">
-          <div className="w-28 h-28 rounded-full bg-[#EEE9FD] flex flex-col items-center justify-center overflow-hidden">
+      <main className="flex flex-1 flex-col">
+        <label className="!mx-auto !mt-[43px] flex h-[130px] w-[130px] cursor-pointer flex-col items-center justify-center gap-[5px] overflow-hidden rounded-full bg-primary-light text-primary">
+          <span className="sr-only">사진 추가</span>
+          <span className="flex h-full w-full flex-col items-center justify-center gap-[5px]">
             {preview ? (
-              <img src={preview} alt="Preview" className="w-full h-full object-cover" />
+              <img src={preview} alt="Preview" className="h-full w-full object-cover" />
             ) : (
-              <div className="flex flex-col items-center gap-1">
-                <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-                  <rect x="3" y="7" width="22" height="17" rx="2.5" stroke="#5B40E4" strokeWidth="1.8" />
-                  <circle cx="14" cy="15" r="5" stroke="#5B40E4" strokeWidth="1.8" />
-                  <path d="M11 7L12.5 4H15.5L17 7" stroke="#5B40E4" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M4 8.5C4 7.39543 4.89543 6.5 6 6.5H8.65L10.15 4.5H13.85L15.35 6.5H18C19.1046 6.5 20 7.39543 20 8.5V17.5C20 18.6046 19.1046 19.5 18 19.5H6C4.89543 19.5 4 18.6046 4 17.5V8.5Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+                  <path d="M12 16.25C13.7949 16.25 15.25 14.7949 15.25 13C15.25 11.2051 13.7949 9.75 12 9.75C10.2051 9.75 8.75 11.2051 8.75 13C8.75 14.7949 10.2051 16.25 12 16.25Z" stroke="currentColor" strokeWidth="1.8" />
                 </svg>
-                <span className="text-[#5B40E4] text-xs font-medium">사진 추가</span>
-              </div>
+                <span className="text-sm leading-4 text-primary">사진 추가</span>
+              </>
             )}
-          </div>
+          </span>
           <input type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
         </label>
 
-        {/* 폼 필드 */}
-        <form onSubmit={handleSubmit} className="w-full flex flex-col gap-6">
-          <div>
-            <label className="block text-sm font-semibold text-gray-900 mb-2">이름</label>
+        <form onSubmit={handleSubmit} className="!mt-[46px] flex w-full flex-1 flex-col">
+          <div className="flex flex-col gap-[10px]">
+            <label className="text-sm font-medium leading-4 text-black">이름</label>
             <input
               type="text"
               name="name"
               value={form.name}
               onChange={handleChange}
               placeholder="이름을 입력해주세요."
-              className="w-full px-4 py-3.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-[#5B40E4] focus:ring-2 focus:ring-[#5B40E4]/10 transition-all"
+              className={inputClassName}
               required
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-semibold text-gray-900 mb-2">나이</label>
+          <div className="!mt-[25px] flex flex-col gap-[10px]">
+            <label className="text-sm font-medium leading-4 text-black">나이</label>
             <input
               type="number"
               name="age"
               value={form.age}
               onChange={handleChange}
               placeholder="나이를 입력해주세요."
-              className="w-full px-4 py-3.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-[#5B40E4] focus:ring-2 focus:ring-[#5B40E4]/10 transition-all"
+              className={inputClassName}
               required
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-semibold text-gray-900 mb-2">관계</label>
+          <div className="!mt-[25px] flex flex-col gap-[10px]">
+            <label className="text-sm font-medium leading-4 text-black">관계</label>
             <input
               type="text"
               name="relation"
               value={form.relation}
               onChange={handleChange}
               placeholder="예) 가족, 친구, 직장동료 등"
-              className="w-full px-4 py-3.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-[#5B40E4] focus:ring-2 focus:ring-[#5B40E4]/10 transition-all"
+              className={inputClassName}
               required
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-semibold text-gray-900 mb-2">주소</label>
+          <div className="!mt-[25px] flex flex-col gap-[10px]">
+            <label className="text-sm font-medium leading-4 text-black">주소</label>
             <input
               type="text"
               name="address"
               value={form.address}
               onChange={handleChange}
               placeholder="예) 서울시 강남구"
-              className="w-full px-4 py-3.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-[#5B40E4] focus:ring-2 focus:ring-[#5B40E4]/10 transition-all"
+              className={inputClassName}
             />
           </div>
 
-          {error && <p className="text-red-500 text-sm">{error}</p>}
+          {error && <p className="!mt-4 text-sm text-red-500">{error}</p>}
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-[#5B40E4] hover:bg-[#4A32C3] text-white font-semibold py-3.5 rounded-xl text-base transition-colors mt-4 disabled:opacity-50"
+            className="!mt-14 flex h-[46px] w-full items-center justify-center rounded-[10px] bg-primary text-base font-semibold leading-4 text-white transition-opacity disabled:opacity-50"
           >
             {loading ? '등록 중...' : '등록'}
           </button>
         </form>
-      </div>
+      </main>
     </div>
   )
 }

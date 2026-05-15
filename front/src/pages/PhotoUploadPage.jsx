@@ -1,17 +1,138 @@
 // 사진 업로드 페이지 — EXIF 기반 분석 후 match_type별 UI 처리
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { uploadPhotos } from '../api/activity'
 import { setPendingFiles } from '../lib/pendingPhotos'
+
+const DRAFT_KEY = 'scheduleFormDraft'
+const STATUS_META = {
+  exact: {
+    label: '일정 매칭',
+    bg: 'bg-calendar-planning-bg',
+    text: 'text-calendar-planning',
+    action: 'bg-primary text-white',
+  },
+  date_only: {
+    label: '날짜만 일치',
+    bg: 'bg-calendar-completed-bg',
+    text: 'text-calendar-completed',
+    action: 'bg-primary text-white',
+  },
+  none: {
+    label: '매칭 없음',
+    bg: 'bg-gray-100',
+    text: 'text-text-sub',
+    action: 'border border-primary bg-white text-primary',
+  },
+}
+
+function formatDate(date) {
+  return date ? String(date).replace(/-/g, '.') : '날짜 정보 없음'
+}
+
+function formatTime(time) {
+  return time ? String(time).slice(0, 5) : ''
+}
+
+function getEndTime(startTime) {
+  const fallback = startTime || '09:00'
+  const [hour, minute] = fallback.split(':').map(Number)
+  return `${String((hour + 1) % 24).padStart(2, '0')}:${String(minute || 0).padStart(2, '0')}`
+}
+
+function getGroupFiles(group, files) {
+  return (group.photo_indices ?? [])
+    .map((index) => files[index])
+    .filter(Boolean)
+}
+
+function getPrefillDraft(group, schedule = {}) {
+  const startTime = formatTime(schedule.start_time || schedule.startTime || group.time) || '09:00'
+  const peopleIds = schedule.people_ids || schedule.peopleIds || group.matched_people_ids || group.people?.map((person) => person.id).filter(Boolean) || []
+  const placeId = schedule.place_id || schedule.placeId || schedule.place?.id || group.place_id || group.place?.id || null
+
+  return {
+    form: {
+      title: schedule.title || group.schedule_title || '',
+      date: schedule.date || group.date || '',
+      start_time: startTime,
+      end_time: formatTime(schedule.end_time || schedule.endTime) || getEndTime(startTime),
+      memo: schedule.memo || '',
+    },
+    selectedPeopleIds: peopleIds,
+    selectedPlaceId: placeId,
+  }
+}
+
+function BackIcon() {
+  return (
+    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M15 18L9 12L15 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function AiIcon() {
+  return (
+    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M4 8.5C4 6.567 5.567 5 7.5 5H16.5C18.433 5 20 6.567 20 8.5V15.5C20 17.433 18.433 19 16.5 19H7.5C5.567 19 4 17.433 4 15.5V8.5Z" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M9 10.5V13.5M15 10.5V13.5M9 16H15" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M12 3V5M12 19V21M2.5 12H4M20 12H21.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function ClockIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M12 7.5V12L15 14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function PhotoIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <rect x="4" y="5" width="16" height="14" rx="2" stroke="currentColor" strokeWidth="1.8" />
+      <circle cx="9" cy="10" r="1.6" fill="currentColor" />
+      <path d="M7 17L11 13.5L13.5 15.5L16 13L20 17" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function CalendarIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M7 2V5M17 2V5M4 9H20M6 4H18C19.1046 4 20 4.89543 20 6V19C20 20.1046 19.1046 21 18 21H6C4.89543 21 4 20.1046 4 19V6C4 4.89543 4.89543 4 6 4Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function PlaceIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12 21S6 15.686 6 10.5C6 7.186 8.686 4.5 12 4.5S18 7.186 18 10.5C18 15.686 12 21 12 21Z" stroke="currentColor" strokeWidth="1.8" />
+      <circle cx="12" cy="10.5" r="2" stroke="currentColor" strokeWidth="1.8" />
+    </svg>
+  )
+}
 
 export default function PhotoUploadPage() {
   const navigate = useNavigate()
 
   const [files, setFiles] = useState([])
+  const [previewUrls, setPreviewUrls] = useState([])
   const [results, setResults] = useState(null)
   const [skippedCount, setSkippedCount] = useState(0)
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState('')
+
+  useEffect(() => {
+    const urls = files.map((file) => URL.createObjectURL(file))
+    setPreviewUrls(urls)
+    return () => urls.forEach((url) => URL.revokeObjectURL(url))
+  }, [files])
 
   const handleFileChange = (e) => {
     const selected = Array.from(e.target.files)
@@ -42,179 +163,251 @@ export default function PhotoUploadPage() {
     }
   }
 
-  // 기존 일정으로 이동
-  const handleViewSchedule = (scheduleId) => {
-    navigate(`/schedule/${scheduleId}`)
-  }
-
-  // 신규 일정 생성 — 사진의 날짜·위치·감지된 사람을 폼에 자동 입력
-  const handleAddSchedule = (group) => {
-    const startTime = group.time ? String(group.time).slice(0, 5) : '09:00'
-    const [h, m] = startTime.split(':').map(Number)
-    const endHour = String((h + 1) % 24).padStart(2, '0')
-    const endTime = `${endHour}:${String(m).padStart(2, '0')}`
-
-    const draft = {
-      form: { title: '', date: group.date ?? '', start_time: startTime, end_time: endTime, memo: '' },
-      selectedPeopleIds: group.matched_people_ids ?? [],   // 얼굴 매칭으로 감지된 사람 자동 입력
-      selectedPlaceId: group.place_id ?? null,             // 사진 GPS로 매칭된 장소 자동 입력
-    }
-    sessionStorage.setItem('scheduleFormDraft', JSON.stringify(draft))
-
-    // 이 그룹에 속하는 파일만 추출 — 모듈 저장소에 보관 (File은 history state 크기 제한 초과)
-    const groupFiles = (group.photo_indices ?? [])
-      .map((i) => files[i])
-      .filter(Boolean)
-    setPendingFiles(groupFiles)
+  const navigateToScheduleForm = (group, schedule = {}) => {
+    sessionStorage.setItem(DRAFT_KEY, JSON.stringify(getPrefillDraft(group, schedule)))
+    setPendingFiles(getGroupFiles(group, files))
     navigate('/schedule/create')
   }
 
+  const handleFileSelectClick = () => {
+    document.getElementById('photo-upload-input')?.click()
+  }
+
   return (
-    <div className="p-4 max-w-lg mx-auto pb-8">
-      <div className="flex items-center gap-2 mb-4">
-        <button onClick={() => navigate('/calendar')} className="text-gray-500 text-sm">
-          ← 뒤로
+    <div className="min-h-screen w-full max-w-[448px] mx-auto bg-white !pb-[110px]">
+      <header className="sticky top-0 z-10 flex items-center justify-center bg-white !px-[23px] !pt-[70px] !pb-[10px]">
+        <button
+          type="button"
+          onClick={() => navigate('/calendar')}
+          className="absolute left-[23px] top-[62px] flex size-[30px] items-center justify-center text-text-main"
+          aria-label="뒤로"
+        >
+          <BackIcon />
         </button>
-        <h1 className="text-xl font-bold">사진 업로드</h1>
-      </div>
+        <h1 className="text-base font-semibold leading-4 text-text-main">사진 업로드</h1>
+      </header>
 
       {/* 파일 선택 */}
-      <div className="border rounded p-4 space-y-3 mb-4">
-        <p className="text-sm text-gray-500">EXIF 정보(GPS, 날짜)가 포함된 사진을 선택하세요. 최대 10장.</p>
-        <input type="file" accept="image/*" multiple onChange={handleFileChange} className="text-sm" />
-        {files.length > 0 && <p className="text-xs text-gray-400">{files.length}장 선택됨</p>}
-        {uploadError && <p className="text-red-500 text-sm">{uploadError}</p>}
+      <main className="!px-[30px] !pt-[28px]">
+        <section className="rounded-[10px] border border-gray-400 !px-[10px] !py-[15px]">
+          <div className="flex gap-[18px]">
+            <div className="flex size-[54px] shrink-0 items-center justify-center rounded-[10px] bg-primary-light text-primary">
+              <AiIcon />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] font-medium leading-4 text-text-main">EXIF 정보(GPS, 날짜)가 포함된 사진을 선택하세요.</p>
+              <p className="text-[8px] leading-4 text-people-status-old">최대 10장까지 선택할 수 있어요</p>
+              <div className="!mt-1 flex items-center gap-[6px]">
+                <button
+                  type="button"
+                  onClick={handleFileSelectClick}
+                  className="text-[10px] font-medium leading-4 text-primary underline"
+                >
+                  파일 선택
+                </button>
+                <span className="text-xs text-text-sub">◆</span>
+                <span className="text-[10px] font-medium leading-4 text-text-main">{files.length}장의 사진</span>
+              </div>
+              <p className="text-[8px] leading-4 text-text-sub">{files.length}장 선택됨</p>
+            </div>
+          </div>
+
+          <input id="photo-upload-input" type="file" accept="image/*" multiple onChange={handleFileChange} className="hidden" />
+
+          {previewUrls.length > 0 && (
+            <div className="!mt-3 grid grid-cols-4 gap-2">
+              {previewUrls.slice(0, 4).map((url) => (
+                <img key={url} src={url} alt="선택한 사진" className="h-[45px] w-full rounded-[5px] object-cover" />
+              ))}
+            </div>
+          )}
+
+          {uploadError && <p className="!mt-2 text-xs text-red-500">{uploadError}</p>}
+
         <button
           onClick={handleUpload}
           disabled={uploading || files.length === 0}
-          className="w-full bg-blue-500 text-white py-2 rounded text-sm disabled:opacity-50"
+            className="!mt-[10px] flex w-full items-center justify-center rounded-[5px] bg-primary !px-[10px] !py-[6px] text-[10px] font-semibold leading-4 text-white disabled:opacity-50"
         >
           {uploading ? '분석 중...' : '분석 시작'}
         </button>
-      </div>
+        </section>
 
       {/* 분석 결과 */}
       {results && (
-        <div className="space-y-3">
-          <div className="flex justify-between items-center">
-            <p className="text-sm font-medium">{results.length}개 그룹 분석 완료</p>
+          <section className="!mt-[24px]">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-bold leading-4 text-text-main">{results.length}개 그룹 분석 완료</p>
             {skippedCount > 0 && (
-              <p className="text-xs text-gray-400">GPS 없는 사진 {skippedCount}장 건너뜀</p>
+                <p className="text-[10px] leading-4 text-text-sub">GPS없는 사진 {skippedCount}장 건너뜀</p>
             )}
           </div>
 
-          {results.map((group) => (
-            <GroupCard
-              key={group.group_index}
-              group={group}
-              onViewSchedule={handleViewSchedule}
-              onAddSchedule={() => handleAddSchedule(group)}
-            />
-          ))}
+            <div className="!mt-3 flex flex-col gap-[15px]">
+              {results.map((group) => (
+                <GroupCard
+                  key={group.group_index}
+                  group={group}
+                  files={files}
+                  onSyncSchedule={(schedule) => navigateToScheduleForm(group, schedule)}
+                  onCreateSchedule={() => navigateToScheduleForm(group)}
+                />
+              ))}
+            </div>
 
           <button
             onClick={() => navigate('/calendar')}
-            className="w-full py-2 rounded text-sm mt-2 border text-gray-600"
+              className="!mt-[15px] w-full rounded-[5px] border border-gray-border !py-2 text-xs text-text-sub"
           >
             캘린더로 돌아가기
           </button>
-        </div>
+          </section>
       )}
+      </main>
     </div>
   )
 }
 
 // ── 그룹 카드 ─────────────────────────────────────────────────
-function GroupCard({ group, onViewSchedule, onAddSchedule }) {
-  const dateStr = group.date ? group.date.replace(/-/g, ' - ') : ''
-  const timeStr = group.time ? String(group.time).slice(0, 5) : ''
+function GroupCard({ group, files, onSyncSchedule, onCreateSchedule }) {
+  const dateStr = formatDate(group.date)
+  const timeStr = formatTime(group.time)
+  const meta = STATUS_META[group.match_type] || STATUS_META.none
+  const groupFiles = getGroupFiles(group, files)
+  const previewFile = groupFiles[0]
+  const [previewUrl, setPreviewUrl] = useState('')
 
-  const badgeStyle = {
-    exact: 'bg-blue-100 text-blue-600',
-    date_only: 'bg-yellow-100 text-yellow-600',
-    none: 'bg-gray-100 text-gray-500',
-  }[group.match_type] ?? 'bg-gray-100 text-gray-500'
-
-  const badgeLabel = {
-    exact: '일정 매칭',
-    date_only: '날짜만 일치',
-    none: '매칭 없음',
-  }[group.match_type] ?? '매칭 없음'
+  useEffect(() => {
+    if (!previewFile) {
+      setPreviewUrl('')
+      return
+    }
+    const url = URL.createObjectURL(previewFile)
+    setPreviewUrl(url)
+    return () => URL.revokeObjectURL(url)
+  }, [previewFile])
 
   return (
-    <div className="border rounded p-4 space-y-2">
+    <article className="rounded-[10px] border border-text-sub !p-[10px]">
       {/* 헤더: 날짜/시간 + 뱃지 */}
-      <div className="flex justify-between items-start">
-        <div className="space-y-0.5">
-          {dateStr && <p className="text-sm font-medium">날짜 | {dateStr}</p>}
-          {timeStr && <p className="text-xs text-gray-500">시간 | {timeStr}</p>}
-          {!dateStr && <p className="text-sm font-medium text-gray-400">날짜 정보 없음</p>}
+      <div className="flex items-center justify-between">
+        <div className="flex min-w-0 items-center gap-[9px]">
+          <div className="flex size-[26px] shrink-0 items-center justify-center rounded-[5px] bg-primary text-xs font-bold leading-4 text-white">
+            {(group.group_index ?? 0) + 1}
+          </div>
+          <p className="truncate text-sm font-bold leading-4 text-text-main">날짜 | {dateStr}</p>
         </div>
-        <span className={`text-xs px-2 py-0.5 rounded-full ${badgeStyle}`}>{badgeLabel}</span>
+        <span className={`shrink-0 rounded-[3px] ${meta.bg} ${meta.text} !px-[6px] text-[8px] leading-4`}>
+          {meta.label}
+        </span>
       </div>
 
-      <p className="text-xs text-gray-400">사진 {group.photo_count}장</p>
-
-      {/* ── exact: 매칭된 일정 정보 표시 → 일정으로 이동 ── */}
-      {group.match_type === 'exact' && (
-        <>
-          <div className="space-y-1">
-            <p className="text-sm font-medium">📅 {group.schedule_title}</p>
-            {group.place_name && <p className="text-sm text-gray-600">📍 {group.place_name}</p>}
-            {group.people?.length > 0 && (
-              <p className="text-sm text-gray-600">👥 {group.people.map((p) => p.name).join(', ')}</p>
-            )}
+      <div className="!py-[10px] !pl-[36px]">
+        <div className="flex flex-col gap-[4px]">
+          <div className="flex items-center gap-1 text-[10px] font-medium leading-4 text-text-sub">
+            <ClockIcon />
+            <span>시간 |</span>
+            <span>{timeStr || '시간 정보 없음'}</span>
           </div>
-          <button
-            onClick={() => onViewSchedule(group.schedule_id)}
-            className="w-full bg-blue-500 text-white py-1.5 rounded text-sm"
-          >
-            일정 보기
-          </button>
-        </>
-      )}
+          <div className="flex items-center gap-1 text-[10px] font-medium leading-4 text-text-sub">
+            <PhotoIcon />
+            <span>사진 |</span>
+            <span>{group.photo_count || groupFiles.length || 0}장</span>
+          </div>
 
-      {/* ── date_only: 후보 일정 선택 → 일정으로 이동 or 신규 생성 ── */}
-      {group.match_type === 'date_only' && (
-        <>
-          <p className="text-xs text-gray-500">같은 날짜의 일정 중 하나를 선택하거나 신규 생성하세요.</p>
+          {group.match_type === 'exact' && (
+            <MatchedSchedule group={group} />
+          )}
 
-          <div className="space-y-2">
+          {group.match_type === 'date_only' && (
+            <>
+              <p className="text-[10px] leading-4 text-text-sub">같은 날짜의 일정 중 하나를 선택하거나 신규 생성하세요.</p>
             {group.candidates?.map((c) => (
               <button
                 key={c.schedule_id}
-                onClick={() => onViewSchedule(c.schedule_id)}
-                className="w-full text-left p-3 rounded border text-sm border-gray-200 bg-white hover:border-blue-400 transition-colors"
+                    onClick={() => onSyncSchedule({
+                      id: c.schedule_id,
+                      title: c.title,
+                      date: c.date || group.date,
+                      start_time: c.start_time,
+                      end_time: c.end_time,
+                      place_id: c.place_id,
+                      place_name: c.place_name,
+                      people_ids: c.people_ids,
+                      people: c.people,
+                    })}
+                    className="w-full text-left"
               >
-                <p className="font-medium">{c.title}</p>
-                {c.place_name && <p className="text-xs text-gray-500 mt-0.5">📍 {c.place_name}</p>}
+                    <p className="text-xs font-semibold leading-4 text-text-main">{c.title}</p>
+                    {c.place_name && (
+                      <div className="flex items-center gap-1 text-[10px] font-medium leading-4 text-text-sub">
+                        <PlaceIcon />
+                        <span>{c.place_name}</span>
+                      </div>
+                    )}
               </button>
             ))}
-          </div>
-
-          <button
-            onClick={onAddSchedule}
-            className="w-full border border-blue-400 text-blue-500 py-1.5 rounded text-sm"
-          >
-            + 신규 일정 생성
-          </button>
-        </>
-      )}
-
-      {/* ── none: 안내 문구 → 신규 생성 ── */}
-      {group.match_type === 'none' && (
-        <>
-          <p className="text-sm text-gray-400">일치하는 일정이 없습니다.</p>
-          {group.place_name && (
-            <p className="text-sm text-gray-600">📍 {group.place_name} (자동 선택됨)</p>
+            </>
           )}
-          <button
-            onClick={onAddSchedule}
-            className="w-full border border-blue-400 text-blue-500 py-1.5 rounded text-sm"
-          >
-            + 신규 일정 생성
-          </button>
-        </>
+
+          {group.match_type === 'none' && (
+            <>
+              <p className="text-[10px] leading-4 text-text-sub">일치하는 일정이 없습니다.</p>
+              {group.place_name && (
+                <div className="flex items-center gap-1 text-[10px] font-medium leading-4 text-text-sub">
+                  <PlaceIcon />
+                  <span>{group.place_name} (자동 선택됨)</span>
+                </div>
+              )}
+            </>
+          )}
+
+          {previewUrl && (
+            <img src={previewUrl} alt="분석된 사진" className="!mt-[10px] h-[45px] w-[60px] rounded-[5px] object-cover" />
+          )}
+        </div>
+      </div>
+
+      <button
+        type="button"
+        onClick={() => group.match_type === 'none' ? onCreateSchedule() : onSyncSchedule({
+          id: group.schedule_id,
+          title: group.schedule_title,
+          date: group.date,
+          start_time: group.start_time || group.time,
+          end_time: group.end_time,
+          place_id: group.place_id,
+          place_name: group.place_name,
+          people_ids: group.people_ids,
+          people: group.people,
+        })}
+        className={`flex w-full items-center justify-center rounded-[5px] !px-[10px] !py-[6px] text-[10px] font-medium leading-4 ${group.match_type === 'none' ? STATUS_META.none.action : meta.action}`}
+      >
+        {group.match_type === 'none' ? '+ 신규 일정 생성' : '일정 바로가기'}
+      </button>
+    </article>
+  )
+}
+
+function MatchedSchedule({ group }) {
+  return (
+    <div className="flex flex-col gap-[4px]">
+      {group.schedule_title && (
+        <div className="flex items-center gap-1 text-[10px] font-medium leading-4 text-text-main">
+          <CalendarIcon />
+          <span>{group.schedule_title}</span>
+        </div>
+      )}
+      {group.place_name && (
+        <div className="flex items-center gap-1 text-[10px] font-medium leading-4 text-text-sub">
+          <PlaceIcon />
+          <span>{group.place_name}</span>
+        </div>
+      )}
+      {group.people?.length > 0 && (
+        <p className="text-[10px] leading-4 text-text-sub">
+          동행인 | {group.people.map((person) => person.name).join(', ')}
+        </p>
       )}
     </div>
   )

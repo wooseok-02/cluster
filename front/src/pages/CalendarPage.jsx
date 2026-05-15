@@ -5,9 +5,77 @@ import BottomTabBar from '../components/BottomTabBar'
 
 const DAY_LABELS = ['일', '월', '화', '수', '목', '금', '토']
 const MONTH_NAMES = ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월']
+const SELECTED_SHEET_HEADER_HEIGHT = 78
+const SELECTED_SHEET_ITEM_HEIGHT = 82
+const SELECTED_SHEET_ITEM_GAP = 10
+const SELECTED_SHEET_BOTTOM_PADDING = 34
+const STATUS_META = {
+  planning: {
+    label: 'Planning',
+    dot: 'bg-calendar-planning',
+    bg: 'bg-calendar-planning-bg',
+    text: 'text-calendar-planning',
+    border: 'border-calendar-planning',
+  },
+  completed: {
+    label: 'Completed',
+    dot: 'bg-calendar-completed',
+    bg: 'bg-calendar-completed-bg',
+    text: 'text-calendar-completed',
+    border: 'border-calendar-completed',
+  },
+}
 
 function pad(n) {
   return String(n).padStart(2, '0')
+}
+
+function getScheduleStatus(schedule) {
+  const status = String(schedule?.status || schedule?.category || '').toLowerCase()
+  if (status.includes('complete') || status.includes('완료')) return 'completed'
+  return 'planning'
+}
+
+function getScheduleTime(schedule) {
+  return schedule?.time || schedule?.start_time || schedule?.startTime || '시간 미정'
+}
+
+function getSchedulePhotoCount(schedule) {
+  const photos = schedule?.photos || schedule?.images || schedule?.photo_urls
+  if (Array.isArray(photos)) return photos.length
+  return schedule?.photo_count || schedule?.photoCount || 0
+}
+
+function getWeekdayLabel(year, month, day) {
+  return DAY_LABELS[new Date(year, month - 1, day).getDay()]
+}
+
+function StatusPill({ status }) {
+  const meta = STATUS_META[status] || STATUS_META.planning
+  return (
+    <span className={`inline-flex items-center rounded-[3px] ${meta.bg} ${meta.text} !px-[6px] text-[8px] font-medium leading-4`}>
+      {meta.label}
+    </span>
+  )
+}
+
+function ClockIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M12 7.5V12L15 14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function ImageIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <rect x="4" y="5" width="16" height="14" rx="2" stroke="currentColor" strokeWidth="1.8" />
+      <circle cx="9" cy="10" r="1.6" fill="currentColor" />
+      <path d="M7 17L11 13.5L13.5 15.5L16 13L20 17" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
 }
 
 export default function CalendarPage() {
@@ -17,8 +85,9 @@ export default function CalendarPage() {
   const [month, setMonth] = useState(today.getMonth() + 1) // 1-12
   const [schedules, setSchedules] = useState([])
   const [error, setError] = useState('')
-  // 바텀시트 상태: null이면 닫힘, 숫자면 선택된 날짜(day)
   const [selectedDay, setSelectedDay] = useState(null)
+  const [isSelectedSheetOpen, setIsSelectedSheetOpen] = useState(false)
+  const [sheetDragStartY, setSheetDragStartY] = useState(null)
 
   useEffect(() => {
     setSchedules([])
@@ -34,11 +103,13 @@ export default function CalendarPage() {
 
   const prevMonth = () => {
     setSelectedDay(null)
+    setIsSelectedSheetOpen(false)
     if (month === 1) { setYear(y => y - 1); setMonth(12) }
     else setMonth(m => m - 1)
   }
   const nextMonth = () => {
     setSelectedDay(null)
+    setIsSelectedSheetOpen(false)
     if (month === 12) { setYear(y => y + 1); setMonth(1) }
     else setMonth(m => m + 1)
   }
@@ -75,82 +146,98 @@ export default function CalendarPage() {
     ? `${year}-${pad(month)}-${pad(selectedDay)}`
     : null
   const selectedSchedules = selectedDay ? (schedulesByDay[selectedDay] || []) : []
+  const selectedSheetListHeight = selectedSchedules.length > 0
+    ? (selectedSchedules.length * SELECTED_SHEET_ITEM_HEIGHT) + ((selectedSchedules.length - 1) * SELECTED_SHEET_ITEM_GAP)
+    : 44
+  const selectedSheetHeight = isSelectedSheetOpen
+    ? SELECTED_SHEET_HEADER_HEIGHT + selectedSheetListHeight + SELECTED_SHEET_BOTTOM_PADDING
+    : SELECTED_SHEET_HEADER_HEIGHT
 
   const handleDayClick = (day) => {
     if (!day) return
-    const daySchedules = schedulesByDay[day] || []
-    if (daySchedules.length === 0) {
-      const dateStr = `${year}-${pad(month)}-${pad(day)}`
-      navigate(`/schedule/create?date=${dateStr}`)
-    } else {
-      setSelectedDay(day)
-    }
+    setSelectedDay(day)
+    setIsSelectedSheetOpen(false)
   }
 
   const handleAddSchedule = () => {
     setSelectedDay(null)
+    setIsSelectedSheetOpen(false)
     navigate(`/schedule/create?date=${selectedDateStr}`)
   }
 
+  const handleSelectedSheetPointerUp = (event) => {
+    if (sheetDragStartY === null) return
+    const dragDistance = event.clientY - sheetDragStartY
+    if (dragDistance < -18) setIsSelectedSheetOpen(true)
+    if (dragDistance > 18) setIsSelectedSheetOpen(false)
+    setSheetDragStartY(null)
+  }
+
   return (
-    <div className="min-h-screen bg-white pb-20">
+    <div className="min-h-screen w-full max-w-[448px] mx-auto bg-white !pb-[118px]">
       {/* Header */}
-      <div className="px-4 py-4 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">cluster</h1>
+      <div className="!px-[30px] !pt-[62px] !pb-[22px] flex items-center justify-between">
+        <h1 className="text-[26px] font-bold leading-none text-text-main">cluster</h1>
         <button
           onClick={() => navigate('/photo/upload')}
-          className="flex items-center gap-1 text-sm text-[#5B40E4] font-medium"
+          className="flex items-center gap-[5px] text-xs font-semibold text-primary"
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-            <rect x="3" y="7" width="18" height="14" rx="2" stroke="#5B40E4" strokeWidth="1.8" />
-            <circle cx="12" cy="13" r="4" stroke="#5B40E4" strokeWidth="1.8" />
-            <path d="M9 7L10.5 4H13.5L15 7" stroke="#5B40E4" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <rect x="3" y="7" width="18" height="14" rx="2" stroke="currentColor" strokeWidth="1.8" />
+            <circle cx="12" cy="13" r="4" stroke="currentColor" strokeWidth="1.8" />
+            <path d="M9 7L10.5 4H13.5L15 7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
           사진 업로드
         </button>
       </div>
 
-      {error && <p className="text-red-500 text-sm px-4 mb-2">{error}</p>}
+      {error && <p className="text-red-500 text-sm !px-[30px] !mb-3">{error}</p>}
 
       {/* Month Navigation */}
-      <div className="px-4 mb-4">
-        <div className="flex items-center justify-between">
-          <button className="p-2" onClick={prevMonth}>
+      <div className="!px-[22px]">
+        <div className="relative overflow-hidden rounded-[22px] border border-gray-border bg-white shadow-sm">
+          <div className="flex items-center justify-between !px-3 !pt-4 !pb-3">
+          <button className="!p-2 text-text-main" onClick={prevMonth} aria-label="이전 달">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M15 18l-6-6 6-6" />
             </svg>
           </button>
-          <h2 className="text-lg font-bold text-gray-900">
+          <h2 className="text-lg font-bold text-text-main">
             {year}년 {MONTH_NAMES[month - 1]}
           </h2>
-          <button className="p-2" onClick={nextMonth}>
+          <button className="!p-2 text-text-main" onClick={nextMonth} aria-label="다음 달">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M9 18l6-6-6-6" />
             </svg>
           </button>
         </div>
-      </div>
 
-      {/* Calendar Grid */}
-      <div className="px-4 mb-6">
-        <div className="bg-white rounded-2xl border border-gray-200 p-4">
+          <div className="flex items-center gap-[10px] !px-[15px] !py-[5px] !mx-4 !mb-3 rounded-full bg-gray-50 w-fit">
+            {Object.entries(STATUS_META).map(([key, meta]) => (
+              <div key={key} className="flex items-center gap-[5px]">
+                <span className={`block size-[7px] rounded-full ${meta.dot}`} />
+                <span className="text-xs leading-4 text-text-main">{meta.label}</span>
+              </div>
+            ))}
+          </div>
+
           {/* Days of Week */}
-          <div className="grid grid-cols-7 mb-2">
+          <div className="grid grid-cols-7 !px-3 !mb-2">
             {DAY_LABELS.map(day => (
-              <div key={day} className="text-center text-sm text-gray-400 py-2">
+              <div key={day} className="text-center text-xs text-text-sub !py-2">
                 {day}
               </div>
             ))}
           </div>
 
           {/* Calendar Days */}
-          <div className="grid grid-cols-7 gap-1">
+          <div className="grid grid-cols-7 gap-y-2 !px-3 !pb-4">
             {days.map((day, index) => (
               <button
                 key={index}
-                className={`aspect-square flex flex-col items-center justify-center relative rounded-xl transition-colors ${
-                  day ? 'hover:bg-gray-50 active:bg-gray-100 cursor-pointer' : 'cursor-default'
-                } ${selectedDay === day && day ? 'bg-[#EEE9FD]' : ''}`}
+                className={`aspect-square min-h-[42px] flex flex-col items-center justify-center relative rounded-xl transition-colors ${
+                  day ? 'active:bg-gray-50 cursor-pointer' : 'cursor-default'
+                } ${selectedDay === day && day ? 'bg-primary-light' : ''}`}
                 onClick={() => handleDayClick(day)}
                 disabled={!day}
               >
@@ -158,15 +245,20 @@ export default function CalendarPage() {
                   <>
                     <span className={`text-sm ${
                       isToday(day)
-                        ? 'bg-[#5B40E4] text-white w-7 h-7 rounded-full flex items-center justify-center'
+                        ? 'bg-primary text-white size-[28px] rounded-full flex items-center justify-center'
                         : selectedDay === day
-                          ? 'text-[#5B40E4] font-semibold'
-                          : 'text-gray-900'
+                          ? 'text-primary font-semibold'
+                          : 'text-text-main'
                     }`}>
                       {day}
                     </span>
-                    {schedulesByDay[day] && !isToday(day) && (
-                      <div className="w-1.5 h-1.5 rounded-full bg-[#5B40E4] mt-0.5" />
+                    {schedulesByDay[day] && (
+                      <div className="flex items-center justify-center gap-0.5 !mt-1">
+                        {schedulesByDay[day].slice(0, 2).map((schedule, scheduleIndex) => {
+                          const meta = STATUS_META[getScheduleStatus(schedule)]
+                          return <span key={schedule.id || `${day}-${scheduleIndex}`} className={`block size-[4px] rounded-full ${meta.dot}`} />
+                        })}
+                      </div>
                     )}
                   </>
                 )}
@@ -177,32 +269,35 @@ export default function CalendarPage() {
       </div>
 
       {/* Upcoming Schedules */}
-      <div className="px-4">
-        <h3 className="text-lg font-bold text-gray-900 mb-4">다가오는 일정</h3>
+      <div className="!px-[30px] !mt-6">
+        <h3 className="text-lg font-bold text-text-main !mb-4">다가오는 일정</h3>
         {upcomingSchedules.length === 0 ? (
-          <div className="flex flex-col items-center py-8 text-gray-400">
-            <p className="text-sm mb-2">다가오는 일정이 없습니다.</p>
+          <div className="flex flex-col items-center rounded-[16px] border border-gray-border bg-gray-50 !py-8 text-text-sub">
+            <p className="text-sm !mb-2">다가오는 일정이 없습니다.</p>
             <button
               onClick={() => navigate('/schedule/create')}
-              className="text-[#5B40E4] text-sm font-medium"
+              className="text-primary text-sm font-semibold"
             >
               일정 추가하기 +
             </button>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="flex flex-col gap-[10px]">
             {upcomingSchedules.map((s) => (
               <button
                 key={s.id}
                 onClick={() => navigate(`/schedule/${s.id}`)}
-                className="w-full bg-white rounded-xl border border-gray-200 p-4 text-left"
+                className="w-full rounded-[10px] border border-gray-border bg-white !p-[10px] text-left"
               >
-                <div className="flex items-center gap-3">
-                  <div className="w-1 h-12 bg-[#5B40E4] rounded-full" />
-                  <div>
-                    <p className="font-medium text-gray-900">{s.title}</p>
-                    <p className="text-sm text-gray-500">{s.date}</p>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-4 min-w-0">
+                    <div className={`h-[52px] w-[4px] rounded-full ${STATUS_META[getScheduleStatus(s)].dot}`} />
+                    <div className="min-w-0">
+                      <p className="truncate text-base font-semibold leading-5 text-text-main">{s.title}</p>
+                      <p className="!mt-1 text-xs leading-4 text-text-sub">{s.date}</p>
+                    </div>
                   </div>
+                  <StatusPill status={getScheduleStatus(s)} />
                 </div>
               </button>
             ))}
@@ -212,74 +307,95 @@ export default function CalendarPage() {
 
       <BottomTabBar />
 
-      {/* 날짜 클릭 바텀시트 */}
+      {/* 날짜 선택 슬라이드 패널 */}
       {selectedDay && (
-        <>
-          {/* 배경 오버레이 */}
+        <div
+          className="fixed bottom-[85px] left-1/2 z-40 w-full max-w-[448px] -translate-x-1/2 overflow-hidden rounded-t-[20px] bg-white shadow-[0px_-2px_5px_0px_rgba(164,164,164,0.4)] transition-[height] duration-200 ease-out"
+          style={{ height: selectedSheetHeight }}
+        >
           <div
-            className="fixed inset-0 bg-black/30 z-40"
-            onClick={() => setSelectedDay(null)}
-          />
-          {/* 시트 */}
-          <div className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl shadow-xl pb-safe">
-            {/* 핸들 */}
-            <div className="flex justify-center pt-3 pb-1">
-              <div className="w-10 h-1 rounded-full bg-gray-300" />
-            </div>
+            className="touch-none"
+            onPointerDown={(event) => setSheetDragStartY(event.clientY)}
+            onPointerUp={handleSelectedSheetPointerUp}
+            onPointerCancel={() => setSheetDragStartY(null)}
+          >
+            <button
+              type="button"
+              className="flex w-full justify-center !pt-3 !pb-1"
+              aria-label="선택 날짜 일정 패널 열기"
+            >
+              <span className="h-[5px] w-[61px] rounded-full bg-gray-200" />
+            </button>
 
-            {/* 헤더 */}
-            <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
-              <h3 className="text-base font-bold text-gray-900">
-                {month}월 {selectedDay}일
+            <div className="flex items-center justify-between gap-3 !px-[30px] !pt-2 !pb-4">
+              <h3 className="text-[15px] font-semibold leading-4 text-text-main">
+                {month}월 {selectedDay}일 ({getWeekdayLabel(year, month, selectedDay)})
               </h3>
-              <button
-                onClick={() => setSelectedDay(null)}
-                className="text-gray-400 p-1"
-                aria-label="닫기"
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M18 6L6 18M6 6l12 12" strokeLinecap="round" />
-                </svg>
-              </button>
-            </div>
-
-            {/* 일정 목록 */}
-            <div className="px-5 py-3 max-h-64 overflow-y-auto">
-              {selectedSchedules.length === 0 ? (
-                <p className="text-sm text-gray-400 py-4 text-center">이 날 등록된 일정이 없습니다.</p>
-              ) : (
-                <div className="space-y-2">
-                  {selectedSchedules.map((s) => (
-                    <button
-                      key={s.id}
-                      onClick={() => { setSelectedDay(null); navigate(`/schedule/${s.id}`) }}
-                      className="w-full flex items-center gap-3 bg-gray-50 rounded-xl px-4 py-3 text-left hover:bg-[#EEE9FD] transition-colors"
-                    >
-                      <div className="w-1.5 h-8 bg-[#5B40E4] rounded-full flex-shrink-0" />
-                      <div>
-                        <p className="text-sm font-semibold text-gray-900">{s.title}</p>
-                        <p className="text-xs text-gray-500">{s.date}</p>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* 일정 추가 버튼 */}
-            <div className="px-5 pb-8 pt-2">
-              <button
-                onClick={handleAddSchedule}
-                className="w-full bg-[#5B40E4] hover:bg-[#4A32C3] text-white font-semibold py-3.5 rounded-xl text-sm transition-colors flex items-center justify-center gap-2"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <path d="M12 5v14M5 12h14" strokeLinecap="round" />
-                </svg>
-                이 날 일정 추가
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleAddSchedule}
+                  className="flex size-8 items-center justify-center rounded-[6px] bg-black text-white"
+                  aria-label="일정 추가"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
+                  </svg>
+                </button>
+                <button
+                  onClick={() => { setSelectedDay(null); setIsSelectedSheetOpen(false) }}
+                  className="!p-1 text-text-sub"
+                  aria-label="닫기"
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M18 6L6 18M6 6l12 12" strokeLinecap="round" />
+                  </svg>
+                </button>
+              </div>
             </div>
           </div>
-        </>
+
+          {isSelectedSheetOpen && (
+            <div className="!px-[30px] !pb-[34px]">
+                {selectedSchedules.length === 0 ? (
+                  <p className="text-sm text-text-sub !py-3 text-center">이 날 등록된 일정이 없습니다.</p>
+                ) : (
+                  <div className="flex flex-col gap-[10px]">
+                    {selectedSchedules.map((s) => (
+                      <button
+                        key={s.id}
+                        onClick={() => { setSelectedDay(null); setIsSelectedSheetOpen(false); navigate(`/schedule/${s.id}`) }}
+                        className="w-full rounded-[10px] border border-gray-border bg-white !p-[10px] text-left transition-colors active:bg-primary-light"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex min-w-0 items-center gap-4">
+                            <div className="flex h-[60px] w-[90px] shrink-0 items-center justify-center rounded-[5px] bg-gray-100 text-gray-400">
+                              <ImageIcon />
+                            </div>
+                            <div className="flex min-w-0 flex-col gap-[10px]">
+                              <p className="truncate text-base font-semibold leading-4 text-text-main">{s.title}</p>
+                              <div className="flex flex-col gap-[2px] text-[10px] font-medium leading-4 text-text-sub">
+                                <div className="flex items-center gap-1">
+                                  <ClockIcon />
+                                  <span>시간 |</span>
+                                  <span>{getScheduleTime(s)}</span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <ImageIcon />
+                                  <span>사진 |</span>
+                                  <span>{getSchedulePhotoCount(s)}장</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          <StatusPill status={getScheduleStatus(s)} />
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+            </div>
+          )}
+        </div>
       )}
     </div>
   )

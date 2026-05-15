@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import OrbitRings from './OrbitRings'
 import PersonNode from './PersonNode'
@@ -9,6 +9,9 @@ const MAP_CENTER = MAP_SIZE / 2
 const MIN_ZOOM = 0.55
 const MAX_ZOOM = 1.8
 const ZOOM_STEP = 0.15
+const NODE_LONG_PRESS_MS = 450
+const NODE_CLICK_DELAY_MS = 220
+const STORAGE_KEY = 'cluster.peopleMap.layout.v1'
 
 const FIGMA_POSITIONS = [
   { x: 650, y: 230 },
@@ -57,6 +60,36 @@ function getInitialView(peopleCount) {
   }
 }
 
+function getPersonId(person) {
+  return String(person.id)
+}
+
+function getConnectionKey(fromId, toId) {
+  return `${fromId}->${toId}`
+}
+
+function loadStoredLayout() {
+  if (typeof window === 'undefined') return { positions: {}, connections: [] }
+
+  try {
+    const rawLayout = window.localStorage.getItem(STORAGE_KEY)
+    if (!rawLayout) return { positions: {}, connections: [] }
+
+    const parsed = JSON.parse(rawLayout)
+    return {
+      positions: parsed.positions && typeof parsed.positions === 'object' ? parsed.positions : {},
+      connections: Array.isArray(parsed.connections) ? parsed.connections : [],
+    }
+  } catch {
+    return { positions: {}, connections: [] }
+  }
+}
+
+function saveStoredLayout(positions, connections) {
+  if (typeof window === 'undefined') return
+  window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ positions, connections }))
+}
+
 function CurrentUserNode({ user, myPhotoUrl, onPhotoClick, uploading, suppressClickRef }) {
   const label = user?.nick_name || user?.email || '나'
 
@@ -95,14 +128,43 @@ export default function PeopleMap({ people, currentUser, myPhotoUrl, onPhotoClic
   const viewportRef = useRef(null)
   const pointersRef = useRef(new Map())
   const dragRef = useRef(null)
+  const nodeDragRef = useRef(null)
+  const nodeLongPressTimerRef = useRef(null)
+  const nodeClickTimerRef = useRef(null)
   const suppressClickRef = useRef(false)
   const initialView = useMemo(() => getInitialView(people.length), [people.length])
+  const storedLayout = useMemo(() => loadStoredLayout(), [])
   const [view, setView] = useState(initialView)
+  const [customPositions, setCustomPositions] = useState(storedLayout.positions)
+  const [connections, setConnections] = useState(storedLayout.connections)
+  const [connectionSourceId, setConnectionSourceId] = useState(null)
+  const [draggingPersonId, setDraggingPersonId] = useState(null)
 
   const positionedPeople = useMemo(
-    () => people.map((person, index) => ({ ...person, mapPosition: getPosition(index) })),
-    [people],
+    () => people.map((person, index) => {
+      const id = getPersonId(person)
+      return { ...person, mapPosition: customPositions[id] || getPosition(index) }
+    }),
+    [customPositions, people],
   )
+
+  const positionById = useMemo(() => {
+    return positionedPeople.reduce((acc, person) => {
+      acc[getPersonId(person)] = person.mapPosition
+      return acc
+    }, {})
+  }, [positionedPeople])
+
+  useEffect(() => {
+    return () => {
+      window.clearTimeout(nodeLongPressTimerRef.current)
+      window.clearTimeout(nodeClickTimerRef.current)
+    }
+  }, [])
+
+  useEffect(() => {
+    saveStoredLayout(customPositions, connections)
+  }, [connections, customPositions])
 
   const setZoom = (nextZoom, origin = null) => {
     setView((current) => {
@@ -126,6 +188,7 @@ export default function PeopleMap({ people, currentUser, myPhotoUrl, onPhotoClic
   }
 
   const handlePointerDown = (event) => {
+    if (nodeDragRef.current) return
     event.currentTarget.setPointerCapture(event.pointerId)
     pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY })
     suppressClickRef.current = false
@@ -147,6 +210,7 @@ export default function PeopleMap({ people, currentUser, myPhotoUrl, onPhotoClic
   }
 
   const handlePointerMove = (event) => {
+    if (nodeDragRef.current) return
     if (!pointersRef.current.has(event.pointerId) || !dragRef.current) return
 
     pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY })
@@ -191,6 +255,101 @@ export default function PeopleMap({ people, currentUser, myPhotoUrl, onPhotoClic
 
   const handleReset = () => setView(initialView)
 
+  const getMapPointFromPointer = (event) => {
+    const rect = viewportRef.current.getBoundingClientRect()
+    return {
+      x: clamp((event.clientX - rect.left - view.x) / view.zoom, 0, MAP_SIZE),
+      y: clamp((event.clientY - rect.top - view.y) / view.zoom, 0, MAP_SIZE),
+    }
+  }
+
+  const handlePersonClick = (person) => {
+    if (suppressClickRef.current) return
+    window.clearTimeout(nodeClickTimerRef.current)
+
+    nodeClickTimerRef.current = window.setTimeout(() => {
+      if (suppressClickRef.current) return
+
+      const personId = getPersonId(person)
+      if (connectionSourceId) {
+        if (connectionSourceId !== personId) {
+          const nextConnection = { fromId: connectionSourceId, toId: personId }
+          const nextKey = getConnectionKey(nextConnection.fromId, nextConnection.toId)
+          setConnections((current) => {
+            if (current.some((connection) => getConnectionKey(connection.fromId, connection.toId) === nextKey)) {
+              return current
+            }
+            return [...current, nextConnection]
+          })
+        }
+        setConnectionSourceId(null)
+        return
+      }
+
+      navigate(`/people/${person.id}`)
+    }, NODE_CLICK_DELAY_MS)
+  }
+
+  const handlePersonDoubleClick = (person) => {
+    window.clearTimeout(nodeClickTimerRef.current)
+    suppressClickRef.current = true
+    setConnectionSourceId((current) => {
+      const personId = getPersonId(person)
+      return current === personId ? null : personId
+    })
+    window.setTimeout(() => {
+      suppressClickRef.current = false
+    }, 0)
+  }
+
+  const handlePersonPointerDown = (person, event) => {
+    event.stopPropagation()
+    event.currentTarget.setPointerCapture(event.pointerId)
+    window.clearTimeout(nodeLongPressTimerRef.current)
+
+    nodeDragRef.current = {
+      pointerId: event.pointerId,
+      personId: getPersonId(person),
+      active: false,
+    }
+
+    nodeLongPressTimerRef.current = window.setTimeout(() => {
+      if (!nodeDragRef.current || nodeDragRef.current.pointerId !== event.pointerId) return
+      nodeDragRef.current.active = true
+      suppressClickRef.current = true
+      setDraggingPersonId(nodeDragRef.current.personId)
+    }, NODE_LONG_PRESS_MS)
+  }
+
+  const handlePersonPointerMove = (event) => {
+    if (!nodeDragRef.current || nodeDragRef.current.pointerId !== event.pointerId) return
+    event.stopPropagation()
+    if (!nodeDragRef.current.active) return
+
+    const nextPosition = getMapPointFromPointer(event)
+    setCustomPositions((current) => ({
+      ...current,
+      [nodeDragRef.current.personId]: nextPosition,
+    }))
+  }
+
+  const handlePersonPointerUp = (event) => {
+    if (!nodeDragRef.current || nodeDragRef.current.pointerId !== event.pointerId) return
+    event.stopPropagation()
+    window.clearTimeout(nodeLongPressTimerRef.current)
+
+    const wasDragging = nodeDragRef.current.active
+    nodeDragRef.current = null
+    setDraggingPersonId(null)
+
+    if (wasDragging) {
+      suppressClickRef.current = true
+      window.setTimeout(() => {
+        suppressClickRef.current = false
+      }, 0)
+    }
+  }
+
   return (
     <section className="relative min-h-0 flex-1 overflow-hidden bg-white" aria-label="People map">
       <div className="pointer-events-none absolute left-[30px] top-[18px] z-20 flex flex-col gap-1">
@@ -224,6 +383,32 @@ export default function PeopleMap({ people, currentUser, myPhotoUrl, onPhotoClic
           }}
         >
           <OrbitRings size={MAP_SIZE} center={MAP_CENTER} />
+          <svg className="pointer-events-none absolute inset-0 h-full w-full" viewBox={`0 0 ${MAP_SIZE} ${MAP_SIZE}`} aria-hidden="true">
+            <defs>
+              <marker id="people-connection-arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="strokeWidth">
+                <path d="M0 0L10 5L0 10Z" className="fill-primary" />
+              </marker>
+            </defs>
+            {connections.map((connection) => {
+              const from = positionById[connection.fromId]
+              const to = positionById[connection.toId]
+              if (!from || !to) return null
+              return (
+                <line
+                  key={getConnectionKey(connection.fromId, connection.toId)}
+                  x1={from.x}
+                  y1={from.y}
+                  x2={to.x}
+                  y2={to.y}
+                  className="stroke-primary"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeDasharray="3 4"
+                  markerEnd="url(#people-connection-arrow)"
+                />
+              )
+            })}
+          </svg>
           <CurrentUserNode
             user={currentUser}
             myPhotoUrl={myPhotoUrl}
@@ -237,8 +422,14 @@ export default function PeopleMap({ people, currentUser, myPhotoUrl, onPhotoClic
               person={person}
               x={person.mapPosition.x}
               y={person.mapPosition.y}
-              onClick={() => navigate(`/people/${person.id}`)}
+              onClick={handlePersonClick}
+              onDoubleClick={handlePersonDoubleClick}
+              onPointerDown={(event) => handlePersonPointerDown(person, event)}
+              onPointerMove={handlePersonPointerMove}
+              onPointerUp={handlePersonPointerUp}
               suppressClickRef={suppressClickRef}
+              isConnecting={connectionSourceId === getPersonId(person)}
+              isDragging={draggingPersonId === getPersonId(person)}
             />
           ))}
         </div>

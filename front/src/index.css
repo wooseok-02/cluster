@@ -11,6 +11,10 @@
   --color-people-status-new: #F5C84B;
   --color-people-status-normal: #32B768;
   --color-people-status-best: #613FE7;
+  --color-calendar-planning: #1D74D7;
+  --color-calendar-planning-bg: #DAEBFE;
+  --color-calendar-completed: #DF9202;
+  --color-calendar-completed-bg: #FFEDCC;
   --color-relation-family: #FF8BB3;
   --color-relation-friend: #5A8DEE;
   --color-relation-work: #37B778;
