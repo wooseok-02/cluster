@@ -1,5 +1,5 @@
 // 일정 상세 페이지 — 정보 표시, Planned 상태일 때 수정 및 확정 가능
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { getSchedule, confirmSchedule, updateSchedule } from '../api/schedule'
 import { verifyPhoto } from '../api/activity'
@@ -19,6 +19,48 @@ const toDateInput = (isoString) => new Date(isoString).toISOString().slice(0, 10
 const toTimeInput = (isoString) => {
   const dt = new Date(isoString)
   return `${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`
+}
+
+const getDateInput = (value) => {
+  if (!value) return ''
+  const text = String(value)
+  const dateMatch = text.match(/(\d{4})[.-](\d{1,2})[.-](\d{1,2})/)
+  if (dateMatch) {
+    return `${dateMatch[1]}-${dateMatch[2].padStart(2, '0')}-${dateMatch[3].padStart(2, '0')}`
+  }
+
+  const dt = new Date(text)
+  if (!Number.isNaN(dt.getTime())) return dt.toISOString().slice(0, 10)
+
+  return ''
+}
+
+const getTimeInput = (value) => {
+  if (!value) return ''
+  const text = String(value)
+  const match = text.match(/(\d{1,2}):(\d{2})/)
+  if (match) return `${match[1].padStart(2, '0')}:${match[2]}`
+
+  const dt = new Date(text)
+  if (!Number.isNaN(dt.getTime())) {
+    return `${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`
+  }
+
+  return ''
+}
+
+const getEndTimeFromPhotoStart = (photoStartTime, scheduleStartTime, scheduleEndTime) => {
+  if (!photoStartTime) return ''
+
+  const [photoHour, photoMinute] = photoStartTime.split(':').map(Number)
+  const [startHour, startMinute] = scheduleStartTime.split(':').map(Number)
+  const [endHour, endMinute] = scheduleEndTime.split(':').map(Number)
+  const currentStartMinutes = startHour * 60 + startMinute
+  const currentEndMinutes = endHour * 60 + endMinute
+  const duration = currentEndMinutes > currentStartMinutes ? currentEndMinutes - currentStartMinutes : 60
+  const nextEndMinutes = photoHour * 60 + photoMinute + duration
+
+  return `${String(Math.floor(nextEndMinutes / 60) % 24).padStart(2, '0')}:${String(nextEndMinutes % 60).padStart(2, '0')}`
 }
 
 const getPhotoUrl = (photo) => {
@@ -55,6 +97,16 @@ function InfoIcon({ type }) {
   )
 }
 
+function AiIcon() {
+  return (
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12 3L13.8 8.2L19 10L13.8 11.8L12 17L10.2 11.8L5 10L10.2 8.2L12 3Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+      <path d="M5.5 14.5L6.4 17.1L9 18L6.4 18.9L5.5 21.5L4.6 18.9L2 18L4.6 17.1L5.5 14.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+      <path d="M18 15L18.7 17L20.7 17.7L18.7 18.4L18 20.4L17.3 18.4L15.3 17.7L17.3 17L18 15Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
 export default function ScheduleDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -65,12 +117,14 @@ export default function ScheduleDetailPage() {
   // 확정 관련 상태
   const [confirmMemo, setConfirmMemo] = useState('')
   const [confirmPhotos, setConfirmPhotos] = useState([])
+  const [confirmPhotoPreview, setConfirmPhotoPreview] = useState('')
   const [confirming, setConfirming] = useState(false)
   const [confirmError, setConfirmError] = useState('')
   const [selectedPhotoUrl, setSelectedPhotoUrl] = useState('')
+  const confirmPhotoInputRef = useRef(null)
 
   // 사진 검증 팝업 상태
-  const [verifyPopup, setVerifyPopup] = useState(null) // { photo_date, photo_place_name, schedule_date, schedule_place_name }
+  const [verifyPopup, setVerifyPopup] = useState(null) // { type, photo_date, photo_place_name, schedule_date, schedule_place_name }
 
   // 수정 관련 상태
   const [editing, setEditing] = useState(false)
@@ -90,6 +144,12 @@ export default function ScheduleDetailPage() {
       .catch(() => setError('일정 정보를 불러오는 데 실패했습니다.'))
       .finally(() => setLoading(false))
   }, [id])
+
+  useEffect(() => {
+    return () => {
+      if (confirmPhotoPreview) URL.revokeObjectURL(confirmPhotoPreview)
+    }
+  }, [confirmPhotoPreview])
 
   // 수정 모드 진입 시 people/place 목록 로드
   const handleEditStart = () => {
@@ -164,6 +224,90 @@ export default function ScheduleDetailPage() {
     }
   }
 
+  const handleConfirmPhotoChange = (event) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    if (confirmPhotoPreview) URL.revokeObjectURL(confirmPhotoPreview)
+    setConfirmPhotos([file])
+    setConfirmPhotoPreview(URL.createObjectURL(file))
+    setConfirmError('')
+  }
+
+  const clearConfirmPhoto = () => {
+    if (confirmPhotoPreview) URL.revokeObjectURL(confirmPhotoPreview)
+    setConfirmPhotoPreview('')
+    setConfirmPhotos([])
+    setVerifyPopup(null)
+    if (confirmPhotoInputRef.current) confirmPhotoInputRef.current.value = ''
+  }
+
+  const applyPhotoInfoToSchedule = async () => {
+    if (!verifyPopup) return
+
+    const photoDate = getDateInput(
+      verifyPopup.photo_date ||
+      verifyPopup.date ||
+      verifyPopup.taken_date ||
+      verifyPopup.takenDate,
+    )
+    const currentStartTime = toTimeInput(schedule.start_time)
+    const currentEndTime = toTimeInput(schedule.end_time)
+    const photoStartTime = getTimeInput(
+      verifyPopup.photo_start_time ||
+      verifyPopup.start_time ||
+      verifyPopup.startTime ||
+      verifyPopup.photo_time ||
+      verifyPopup.time,
+    )
+    const photoEndTime = getTimeInput(
+      verifyPopup.photo_end_time ||
+      verifyPopup.end_time ||
+      verifyPopup.endTime,
+    )
+    const nextEndTime = photoEndTime || getEndTimeFromPhotoStart(photoStartTime, currentStartTime, currentEndTime)
+    const photoPlaceId =
+      verifyPopup.photo_place_id ??
+      verifyPopup.place_id ??
+      verifyPopup.place?.id ??
+      schedule.place?.id ??
+      0
+    const photoPeopleIds =
+      verifyPopup.photo_people_ids ||
+      verifyPopup.people_ids ||
+      verifyPopup.detected_people_ids ||
+      verifyPopup.people?.map?.((person) => person.id) ||
+      schedule.people?.map((person) => person.id) ||
+      []
+
+    const updated = await updateSchedule(id, {
+      title: schedule.title,
+      date: photoDate || toDateInput(schedule.start_time),
+      start_time: photoStartTime || currentStartTime,
+      end_time: nextEndTime || currentEndTime,
+      memo: schedule.memo || '',
+      place_id: photoPlaceId,
+      people_ids: photoPeopleIds,
+    })
+    setSchedule(updated.data)
+  }
+
+  const handleMismatchConfirm = async () => {
+    setConfirmError('')
+    setConfirming(true)
+    try {
+      if (verifyPopup?.type !== 'missing-exif') {
+        await applyPhotoInfoToSchedule()
+      }
+      setVerifyPopup(null)
+      await doConfirm()
+    } catch (err) {
+      const detail = err.response?.data?.detail
+      setConfirmError(typeof detail === 'object' ? detail.message : detail || '사진 정보 반영에 실패했습니다.')
+      setConfirming(false)
+    }
+  }
+
   const handleConfirm = async () => {
     // 사진이 있으면 첫 번째 사진으로 검증 먼저 수행
     if (confirmPhotos.length > 0) {
@@ -173,12 +317,21 @@ export default function ScheduleDetailPage() {
         if (result.match) {
           await doConfirm()
         } else {
-          setVerifyPopup(result)
+          setVerifyPopup({ ...result, type: result.type || 'mismatch' })
           setConfirming(false)
         }
-      } catch {
-        // 검증 API 실패 시 그냥 확정 진행
-        await doConfirm()
+      } catch (err) {
+        const detail = err.response?.data?.detail
+        const message = typeof detail === 'object'
+          ? detail.message
+          : detail || '사진에 GPS/EXIF 정보가 없어 일정과 비교할 수 없습니다.'
+        setVerifyPopup({
+          type: 'missing-exif',
+          message,
+          schedule_date: start.date,
+          schedule_place_name: schedule.place?.name || '-',
+        })
+        setConfirming(false)
       }
     } else {
       await doConfirm()
@@ -203,26 +356,41 @@ export default function ScheduleDetailPage() {
     <div className="min-h-screen w-full max-w-[448px] mx-auto bg-white !pb-[110px]">
       {/* 사진 검증 불일치 팝업 */}
       {verifyPopup && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl !p-6 !mx-4 w-full max-w-sm space-y-4">
-            <p className="font-semibold text-sm">사진 정보가 일정과 다릅니다.</p>
-            <div className="text-sm space-y-1 text-gray-600">
-              <p>사진: {verifyPopup.photo_date ?? '-'} / {verifyPopup.photo_place_name ?? '-'}</p>
-              <p>일정: {verifyPopup.schedule_date ?? '-'} / {verifyPopup.schedule_place_name ?? '-'}</p>
-            </div>
-            <p className="text-sm font-medium">이 일정이 맞나요?</p>
-            <div className="flex gap-2">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="w-full max-w-[340px] rounded-[16px] bg-white !mx-4 !p-6 shadow-lg">
+            <p className="text-base font-bold leading-5 text-text-main">
+              {verifyPopup.type === 'missing-exif'
+                ? '사진 정보를 확인할 수 없습니다.'
+                : '현재 계획된 일정과 다릅니다.'}
+            </p>
+            {verifyPopup.type === 'missing-exif' ? (
+              <p className="!mt-4 text-sm leading-5 text-text-sub">
+                {verifyPopup.message}
+              </p>
+            ) : (
+              <div className="!mt-4 space-y-1 text-sm leading-5 text-text-sub">
+                <p>사진: {verifyPopup.photo_date ?? '-'} / {verifyPopup.photo_place_name ?? '-'}</p>
+                <p>일정: {verifyPopup.schedule_date ?? '-'} / {verifyPopup.schedule_place_name ?? '-'}</p>
+              </div>
+            )}
+            <p className="!mt-4 text-sm font-medium leading-5 text-text-main">
+              그래도 사진을 넣겠습니까?
+            </p>
+            <div className="!mt-5 flex gap-2">
               <button
-                onClick={() => { setVerifyPopup(null) }}
-                className="flex-1 border py-2 rounded text-sm text-gray-600"
+                type="button"
+                onClick={clearConfirmPhoto}
+                className="flex-1 rounded-[10px] border border-gray-border !py-3 text-sm font-semibold text-text-sub"
               >
-                아니다
+                아니오
               </button>
               <button
-                onClick={() => { setVerifyPopup(null); doConfirm() }}
-                className="flex-1 bg-green-500 text-white py-2 rounded text-sm"
+                type="button"
+                onClick={handleMismatchConfirm}
+                disabled={confirming}
+                className="flex-1 rounded-[10px] bg-primary !py-3 text-sm font-semibold text-white disabled:opacity-50"
               >
-                맞다
+                예
               </button>
             </div>
           </div>
@@ -463,7 +631,7 @@ export default function ScheduleDetailPage() {
               </div>
 
           {/* 사진 목록 */}
-              {schedulePhotos.length > 0 ? (
+              {schedulePhotos.length > 0 && (
                 <div className="flex w-full snap-x snap-mandatory gap-2 overflow-x-auto !pt-[10px]">
                   {schedulePhotos.map((photoUrl, index) => (
                     <button
@@ -480,10 +648,6 @@ export default function ScheduleDetailPage() {
                     </button>
                   ))}
                 </div>
-              ) : (
-                <div className="!mt-[10px] flex h-[75px] w-[90px] items-center justify-center rounded-[5px] bg-gray-100 text-[10px] text-text-sub">
-                  사진 없음
-                </div>
               )}
             </div>
           </section>
@@ -491,44 +655,63 @@ export default function ScheduleDetailPage() {
 
       {/* 확정 섹션 — Planned 상태이고 수정 모드가 아닐 때만 표시 */}
       {schedule.status === 'Planned' && !editing && (
-          <div className="!mt-5 border rounded !p-4 space-y-3">
-          <h2 className="font-semibold text-sm">일정 확정</h2>
-
-          <div>
-            <label className="block text-sm text-gray-500 mb-1">메모 (선택)</label>
-            <textarea
-              value={confirmMemo}
-              onChange={(e) => setConfirmMemo(e.target.value)}
-              rows={2}
-              placeholder="확정 메모를 입력하세요"
-              className="w-full border rounded px-3 py-2 text-sm"
-            />
+        <section className="!mt-5 rounded-[10px] border border-gray-400 !px-[10px] !py-[15px]">
+          <div className="flex gap-[18px]">
+            <div className="flex size-[54px] shrink-0 items-center justify-center overflow-hidden rounded-[10px] bg-primary-light text-primary">
+              {confirmPhotoPreview ? (
+                <img src={confirmPhotoPreview} alt="분석할 사진" className="h-full w-full object-cover" />
+              ) : (
+                <AiIcon />
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] font-medium leading-4 text-text-main">일정과 비교할 사진을 1장 선택하세요.</p>
+              <p className="text-[8px] leading-4 text-people-status-old">날짜, 시간, 장소, 인물이 다르면 확인 후 반영할 수 있어요.</p>
+              <div className="!mt-1 flex items-center gap-[6px]">
+                <button
+                  type="button"
+                  onClick={() => confirmPhotoInputRef.current?.click()}
+                  className="text-[10px] font-medium leading-4 text-primary underline"
+                >
+                  파일 선택
+                </button>
+                <span className="text-xs text-text-sub">◆</span>
+                <span className="text-[10px] font-medium leading-4 text-text-main">
+                  {confirmPhotos.length > 0 ? '1장의 사진' : '0장의 사진'}
+                </span>
+              </div>
+              <p className="text-[8px] leading-4 text-text-sub">
+                {confirmPhotos.length > 0 ? '1장 선택됨' : '사진 없음'}
+              </p>
+            </div>
           </div>
 
-          <div>
-            <label className="block text-sm text-gray-500 mb-1">사진 첨부 (선택, 최대 10장)</label>
-            <input
-              type="file"
-              accept="image/*"
-              multiple
-              onChange={(e) => setConfirmPhotos(Array.from(e.target.files))}
-              className="text-sm"
-            />
-            {confirmPhotos.length > 0 && (
-              <p className="text-xs text-gray-400 mt-1">{confirmPhotos.length}장 선택됨</p>
-            )}
-          </div>
+          <input
+            ref={confirmPhotoInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleConfirmPhotoChange}
+            className="hidden"
+          />
 
-          {confirmError && <p className="text-red-500 text-sm">{confirmError}</p>}
+          <textarea
+            value={confirmMemo}
+            onChange={(e) => setConfirmMemo(e.target.value)}
+            rows={2}
+            placeholder="메모를 입력하세요"
+            className="!mt-3 w-full resize-none rounded-[5px] border border-gray-border bg-white !px-[10px] !py-2 text-xs leading-4 text-text-main outline-none focus:border-primary"
+          />
+
+          {confirmError && <p className="!mt-2 text-xs text-red-500">{confirmError}</p>}
 
           <button
             onClick={handleConfirm}
-            disabled={confirming}
-            className="w-full bg-green-500 text-white py-2 rounded disabled:opacity-50"
+            disabled={confirming || confirmPhotos.length === 0}
+            className="!mt-[10px] flex w-full items-center justify-center rounded-[5px] bg-primary !px-[10px] !py-[6px] text-[10px] font-semibold leading-4 text-white disabled:opacity-50"
           >
-            {confirming ? '확정 중...' : '완료 (확정)'}
+            {confirming ? '분석 중...' : '분석 시작'}
           </button>
-        </div>
+        </section>
       )}
       </main>
     </div>

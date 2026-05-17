@@ -154,6 +154,23 @@ export default function PeopleMap({ people, currentUser, myPhotoUrl, onPhotoClic
   const [connectionSourceId, setConnectionSourceId] = useState(null)
   const [draggingPersonId, setDraggingPersonId] = useState(null)
 
+  const constrainView = (nextView) => {
+    if (!viewportRef.current) return nextView
+
+    const rect = viewportRef.current.getBoundingClientRect()
+    const scaledSize = MAP_SIZE * nextView.zoom
+    const getAxisValue = (viewportSize, currentValue) => {
+      if (scaledSize <= viewportSize) return (viewportSize - scaledSize) / 2
+      return clamp(currentValue, viewportSize - scaledSize, 0)
+    }
+
+    return {
+      ...nextView,
+      x: getAxisValue(rect.width, nextView.x),
+      y: getAxisValue(rect.height, nextView.y),
+    }
+  }
+
   const positionedPeople = useMemo(
     () => people.map((person, index) => {
       const id = getPersonId(person)
@@ -180,11 +197,21 @@ export default function PeopleMap({ people, currentUser, myPhotoUrl, onPhotoClic
     saveStoredLayout(customPositions, connections)
   }, [connections, customPositions])
 
+  useEffect(() => {
+    const handleResize = () => {
+      setView((current) => constrainView(current))
+    }
+
+    handleResize()
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
   const setZoom = (nextZoom, origin = null) => {
     setView((current) => {
       const zoom = clamp(nextZoom, MIN_ZOOM, MAX_ZOOM)
       if (!origin || !viewportRef.current || zoom === current.zoom) {
-        return { ...current, zoom }
+        return constrainView({ ...current, zoom })
       }
 
       const rect = viewportRef.current.getBoundingClientRect()
@@ -193,11 +220,11 @@ export default function PeopleMap({ people, currentUser, myPhotoUrl, onPhotoClic
       const mapX = (originX - current.x) / current.zoom
       const mapY = (originY - current.y) / current.zoom
 
-      return {
+      return constrainView({
         zoom,
         x: originX - mapX * zoom,
         y: originY - mapY * zoom,
-      }
+      })
     })
   }
 
@@ -205,7 +232,6 @@ export default function PeopleMap({ people, currentUser, myPhotoUrl, onPhotoClic
     if (nodeDragRef.current) return
     capturePointer(event.currentTarget, event.pointerId)
     pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY })
-    suppressClickRef.current = false
 
     if (pointersRef.current.size === 1) {
       dragRef.current = { x: event.clientX, y: event.clientY, view }
@@ -245,11 +271,11 @@ export default function PeopleMap({ people, currentUser, myPhotoUrl, onPhotoClic
       const dx = event.clientX - dragRef.current.x
       const dy = event.clientY - dragRef.current.y
       if (Math.abs(dx) > 3 || Math.abs(dy) > 3) suppressClickRef.current = true
-      setView({
+      setView(constrainView({
         ...dragRef.current.view,
         x: dragRef.current.view.x + dx,
         y: dragRef.current.view.y + dy,
-      })
+      }))
     }
   }
 
@@ -258,7 +284,7 @@ export default function PeopleMap({ people, currentUser, myPhotoUrl, onPhotoClic
     dragRef.current = null
     window.setTimeout(() => {
       suppressClickRef.current = false
-    }, 0)
+    }, NODE_CLICK_DELAY_MS)
   }
 
   const handleWheel = (event) => {
@@ -267,7 +293,7 @@ export default function PeopleMap({ people, currentUser, myPhotoUrl, onPhotoClic
     setZoom(view.zoom + direction * ZOOM_STEP, { x: event.clientX, y: event.clientY })
   }
 
-  const handleReset = () => setView(initialView)
+  const handleReset = () => setView(constrainView(initialView))
 
   const getMapPointFromPointer = (event) => {
     const rect = viewportRef.current.getBoundingClientRect()
@@ -340,10 +366,11 @@ export default function PeopleMap({ people, currentUser, myPhotoUrl, onPhotoClic
     event.stopPropagation()
     if (!nodeDragRef.current.active) return
 
+    const personId = nodeDragRef.current.personId
     const nextPosition = getMapPointFromPointer(event)
     setCustomPositions((current) => ({
       ...current,
-      [nodeDragRef.current.personId]: nextPosition,
+      [personId]: nextPosition,
     }))
   }
 
@@ -360,7 +387,7 @@ export default function PeopleMap({ people, currentUser, myPhotoUrl, onPhotoClic
       suppressClickRef.current = true
       window.setTimeout(() => {
         suppressClickRef.current = false
-      }, 0)
+      }, NODE_CLICK_DELAY_MS)
     }
   }
 

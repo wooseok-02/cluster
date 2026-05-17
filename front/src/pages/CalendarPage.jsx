@@ -36,14 +36,105 @@ function getScheduleStatus(schedule) {
   return 'planning'
 }
 
+function formatTimeValue(value) {
+  if (!value) return ''
+  const text = String(value)
+  const timeMatch = text.match(/(\d{1,2}):(\d{2})/)
+  if (timeMatch) return `${timeMatch[1].padStart(2, '0')}:${timeMatch[2]}`
+
+  const date = new Date(text)
+  if (!Number.isNaN(date.getTime())) {
+    return `${pad(date.getHours())}:${pad(date.getMinutes())}`
+  }
+
+  return text
+}
+
 function getScheduleTime(schedule) {
-  return schedule?.time || schedule?.start_time || schedule?.startTime || '시간 미정'
+  const start = formatTimeValue(
+    schedule?.time ||
+    schedule?.start_time ||
+    schedule?.startTime ||
+    schedule?.start_at ||
+    schedule?.startAt ||
+    schedule?.started_at ||
+    schedule?.startedAt ||
+    schedule?.start_datetime ||
+    schedule?.startDateTime,
+  )
+  const end = formatTimeValue(
+    schedule?.end_time ||
+    schedule?.endTime ||
+    schedule?.end_at ||
+    schedule?.endAt ||
+    schedule?.ended_at ||
+    schedule?.endedAt ||
+    schedule?.end_datetime ||
+    schedule?.endDateTime,
+  )
+
+  if (start && end) return `${start} ~ ${end}`
+  return start || '시간 미정'
+}
+
+function getPhotoUrl(photo) {
+  if (!photo) return ''
+  if (typeof photo === 'string') return photo
+  return (
+    photo.photo_url ||
+    photo.photoUrl ||
+    photo.image_url ||
+    photo.imageUrl ||
+    photo.url ||
+    photo.file_url ||
+    photo.fileUrl ||
+    photo.thumbnail_url ||
+    photo.thumbnailUrl ||
+    ''
+  )
+}
+
+function getSchedulePhotos(schedule) {
+  const candidates = [
+    schedule?.photos,
+    schedule?.images,
+    schedule?.photo_urls,
+    schedule?.photoUrls,
+    schedule?.image_urls,
+    schedule?.imageUrls,
+    schedule?.activity_photos,
+    schedule?.activityPhotos,
+  ]
+
+  const nestedLogs = schedule?.activity_logs || schedule?.activityLogs || schedule?.logs
+  if (Array.isArray(nestedLogs)) {
+    nestedLogs.forEach((log) => {
+      candidates.push(log.photos, log.images, log.photo_urls, log.photoUrls)
+    })
+  }
+
+  const photos = candidates
+    .flatMap((candidate) => Array.isArray(candidate) ? candidate : candidate ? [candidate] : [])
+    .map(getPhotoUrl)
+    .filter(Boolean)
+
+  return [...new Set(photos)]
 }
 
 function getSchedulePhotoCount(schedule) {
-  const photos = schedule?.photos || schedule?.images || schedule?.photo_urls
-  if (Array.isArray(photos)) return photos.length
-  return schedule?.photo_count || schedule?.photoCount || 0
+  const photos = getSchedulePhotos(schedule)
+  if (photos.length > 0) return photos.length
+  return (
+    Number(
+      schedule?.photo_count ??
+      schedule?.photoCount ??
+      schedule?.photos_count ??
+      schedule?.photosCount ??
+      schedule?.image_count ??
+      schedule?.imageCount ??
+      0,
+    ) || 0
+  )
 }
 
 function getWeekdayLabel(year, month, day) {
@@ -174,7 +265,10 @@ export default function CalendarPage() {
   }
 
   return (
-    <div className="min-h-screen w-full max-w-[448px] mx-auto bg-white !pb-[118px]">
+    <div
+      className="min-h-screen w-full max-w-[448px] mx-auto overflow-y-auto bg-white"
+      style={{ paddingBottom: selectedDay ? selectedSheetHeight + 125 : 118 }}
+    >
       {/* Header */}
       <div className="!px-[30px] !pt-5 !pb-[22px] flex items-center justify-between">
         <h1 className="text-[26px] font-bold leading-none text-text-main">cluster</h1>
@@ -360,37 +454,47 @@ export default function CalendarPage() {
                   <p className="text-sm text-text-sub !py-3 text-center">이 날 등록된 일정이 없습니다.</p>
                 ) : (
                   <div className="flex flex-col gap-[10px]">
-                    {selectedSchedules.map((s) => (
-                      <button
-                        key={s.id}
-                        onClick={() => { setSelectedDay(null); setIsSelectedSheetOpen(false); navigate(`/schedule/${s.id}`) }}
-                        className="w-full rounded-[10px] border border-gray-border bg-white !p-[10px] text-left transition-colors active:bg-primary-light"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex min-w-0 items-center gap-4">
-                            <div className="flex h-[60px] w-[90px] shrink-0 items-center justify-center rounded-[5px] bg-gray-100 text-gray-400">
-                              <ImageIcon />
-                            </div>
-                            <div className="flex min-w-0 flex-col gap-[10px]">
-                              <p className="truncate text-base font-semibold leading-4 text-text-main">{s.title}</p>
-                              <div className="flex flex-col gap-[2px] text-[10px] font-medium leading-4 text-text-sub">
-                                <div className="flex items-center gap-1">
-                                  <ClockIcon />
-                                  <span>시간 |</span>
-                                  <span>{getScheduleTime(s)}</span>
-                                </div>
-                                <div className="flex items-center gap-1">
+                    {selectedSchedules.map((s) => {
+                      const photos = getSchedulePhotos(s)
+                      const firstPhoto = photos[0]
+                      const photoCount = getSchedulePhotoCount(s)
+
+                      return (
+                        <button
+                          key={s.id}
+                          onClick={() => { setSelectedDay(null); setIsSelectedSheetOpen(false); navigate(`/schedule/${s.id}`) }}
+                          className="w-full rounded-[10px] border border-gray-border bg-white !p-[10px] text-left transition-colors active:bg-primary-light"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex min-w-0 items-center gap-4">
+                              <div className="flex h-[60px] w-[90px] shrink-0 items-center justify-center overflow-hidden rounded-[5px] bg-gray-100 text-gray-400">
+                                {firstPhoto ? (
+                                  <img src={firstPhoto} alt={s.title || '일정 사진'} className="h-full w-full object-cover" />
+                                ) : (
                                   <ImageIcon />
-                                  <span>사진 |</span>
-                                  <span>{getSchedulePhotoCount(s)}장</span>
+                                )}
+                              </div>
+                              <div className="flex min-w-0 flex-col gap-[10px]">
+                                <p className="truncate text-base font-semibold leading-4 text-text-main">{s.title}</p>
+                                <div className="flex flex-col gap-[2px] text-[10px] font-medium leading-4 text-text-sub">
+                                  <div className="flex items-center gap-1">
+                                    <ClockIcon />
+                                    <span>시간 |</span>
+                                    <span>{getScheduleTime(s)}</span>
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    <ImageIcon />
+                                    <span>사진 |</span>
+                                    <span>{photoCount}장</span>
+                                  </div>
                                 </div>
                               </div>
                             </div>
+                            <StatusPill status={getScheduleStatus(s)} />
                           </div>
-                          <StatusPill status={getScheduleStatus(s)} />
-                        </div>
-                      </button>
-                    ))}
+                        </button>
+                      )
+                    })}
                   </div>
                 )}
             </div>

@@ -63,7 +63,7 @@ export default function RegisterPage() {
             value={form.email}
             onChange={handleChange}
             placeholder="이메일"
-            className="h-10 w-full rounded-[10px] border border-people-status-old bg-white !px-5 text-xs leading-4 text-text-main outline-none placeholder:text-people-status-old focus:border-primary focus:ring-2 focus:ring-primary-light"
+            className="h-14 w-full rounded-[14px] border border-people-status-old bg-white !px-5 text-base text-text-main outline-none placeholder:text-people-status-old focus:border-primary focus:ring-2 focus:ring-primary-light"
             required
           />
 
@@ -73,7 +73,7 @@ export default function RegisterPage() {
             value={form.password}
             onChange={handleChange}
             placeholder="비밀번호"
-            className="h-10 w-full rounded-[10px] border border-people-status-old bg-white !px-5 text-xs leading-4 text-text-main outline-none placeholder:text-people-status-old focus:border-primary focus:ring-2 focus:ring-primary-light"
+            className="h-14 w-full rounded-[14px] border border-people-status-old bg-white !px-5 text-base text-text-main outline-none placeholder:text-people-status-old focus:border-primary focus:ring-2 focus:ring-primary-light"
             required
           />
 
@@ -83,7 +83,7 @@ export default function RegisterPage() {
             value={form.nick_name}
             onChange={handleChange}
             placeholder="닉네임"
-            className="h-10 w-full rounded-[10px] border border-people-status-old bg-white !px-5 text-xs leading-4 text-text-main outline-none placeholder:text-people-status-old focus:border-primary focus:ring-2 focus:ring-primary-light"
+            className="h-14 w-full rounded-[14px] border border-people-status-old bg-white !px-5 text-base text-text-main outline-none placeholder:text-people-status-old focus:border-primary focus:ring-2 focus:ring-primary-light"
             required
           />
 
@@ -93,7 +93,7 @@ export default function RegisterPage() {
             value={form.age}
             onChange={handleChange}
             placeholder="나이"
-            className="h-10 w-full rounded-[10px] border border-people-status-old bg-white !px-5 text-xs leading-4 text-text-main outline-none placeholder:text-people-status-old focus:border-primary focus:ring-2 focus:ring-primary-light"
+            className="h-14 w-full rounded-[14px] border border-people-status-old bg-white !px-5 text-base text-text-main outline-none placeholder:text-people-status-old focus:border-primary focus:ring-2 focus:ring-primary-light"
             required
           />
 
@@ -102,7 +102,7 @@ export default function RegisterPage() {
               name="gender"
               value={form.gender}
               onChange={handleChange}
-              className="h-10 w-full appearance-none rounded-[10px] border border-people-status-old bg-white !px-5 !pr-10 text-xs leading-4 text-text-main outline-none focus:border-primary focus:ring-2 focus:ring-primary-light"
+              className="h-14 w-full appearance-none rounded-[14px] border border-people-status-old bg-white !px-5 !pr-12 text-base text-text-main outline-none focus:border-primary focus:ring-2 focus:ring-primary-light"
               required
             >
               <option value="">성별</option>
@@ -110,7 +110,7 @@ export default function RegisterPage() {
               <option value="woman">여성</option>
             </select>
             <div className="pointer-events-none absolute right-5 top-1/2 -translate-y-1/2 text-people-status-old">
-              <svg width="17" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                 <path d="M7 10L12 15L17 10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </div>
@@ -121,13 +121,13 @@ export default function RegisterPage() {
           <button
             type="submit"
             disabled={loading}
-            className="!mt-5 flex h-10 w-full items-center justify-center rounded-[10px] bg-primary !p-[10px] text-sm font-bold leading-4 text-white disabled:opacity-50"
+            className="!mt-5 flex h-14 w-full items-center justify-center rounded-[14px] bg-primary text-lg font-bold text-white disabled:opacity-50"
           >
             {loading ? '가입 중...' : '회원가입'}
           </button>
         </form>
 
-        <p className="!mt-[26px] text-center text-xs font-medium leading-4 text-text-sub">
+        <p className="!mt-[26px] text-center text-base font-medium leading-5 text-text-sub">
           이미 계정이 있으신가요?{' '}
           <Link to="/" className="font-bold text-primary">
             로그인
