@@ -95,7 +95,7 @@ async def verify_photo_route(
     - 일정 장소가 설정되지 않은 경우 location_match=false
     """
     photo_bytes = await photo.read()
-    return verify_photo(db, schedule_id, photo_bytes, current_user)
+    return await verify_photo(db, schedule_id, photo_bytes, current_user)
 
 
 @router.get("/{log_id}", response_model=ActivityRead)

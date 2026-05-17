@@ -75,7 +75,10 @@ export default function PersonDetailPage() {
   if (!person) return <p className="!p-4 text-red-500">정보를 불러오는 데 실패했습니다.</p>
 
   const logs = Array.isArray(person.logs) ? person.logs : []
-  const plannedSchedules = Array.isArray(person.planned_schedules) ? person.planned_schedules : []
+  const rawPlannedSchedules = person.planned_schedules || person.plannedSchedules || person.schedules || []
+  const plannedSchedules = Array.isArray(rawPlannedSchedules)
+    ? rawPlannedSchedules.filter((schedule) => ['planned', 'planning'].includes(String(schedule.status || '').toLowerCase()))
+    : []
   const phone = person.phone || person.phone_number || person.phoneNumber || '-'
   const visibleItems = activeList === 'recent' ? logs.slice(0, 3) : plannedSchedules
 

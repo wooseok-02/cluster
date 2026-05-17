@@ -18,6 +18,7 @@ async def register_people(
     age: int = Form(...),
     relation: str = Form(...),
     address: str = Form(""),
+    phone: str = Form(""),
     photo: Optional[UploadFile] = File(None),
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
@@ -29,7 +30,7 @@ async def register_people(
     - 사진 없이 이름·나이·관계·주소만으로도 등록 가능
     """
     new_people = await create_people(
-        db, name, age, relation, address, current_user, photo
+        db, name, age, relation, address, phone, current_user, photo
     )
     return {
         "status": 200,

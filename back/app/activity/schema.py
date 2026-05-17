@@ -85,9 +85,21 @@ class PhotoUploadResponse(BaseModel):
 # ── 사진 검증 결과 스키마 ─────────────────────────────────────
 class PhotoVerifyResponse(BaseModel):
     match: bool
+    exif_found: bool = True
     date_match: bool
+    time_match: bool = False
     location_match: bool
+    people_match: bool = False
     photo_date: Optional[Date] = None
+    photo_time: Optional[Time] = None
     photo_place_name: Optional[str] = None
-    schedule_date: Optional[Time] = None
+    photo_place_id: Optional[int] = None
+    schedule_date: Optional[Date] = None
+    schedule_start_time: Optional[Time] = None
+    schedule_end_time: Optional[Time] = None
     schedule_place_name: Optional[str] = None
+    matched_people_ids: list[int] = []
+    matched_people_names: list[str] = []
+    schedule_people_ids: list[int] = []
+    schedule_people_names: list[str] = []
+    unmatched_face_count: int = 0

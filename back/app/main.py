@@ -13,7 +13,7 @@ import config.cloudinary
 
 Base.metadata.create_all(bind=engine)
 
-# 마이그레이션 — PEOPLE 테이블에 photo_url 컬럼 추가 (없을 때만)
+# 마이그레이션 — PEOPLE 테이블에 누락 컬럼 추가 (없을 때만)
 try:
     with engine.connect() as conn:
         from sqlalchemy import text, inspect
@@ -24,11 +24,17 @@ try:
             existing_cols = [c["name"] for c in inspector.get_columns("PEOPLE")]
         except Exception:
             existing_cols = [c["name"] for c in inspector.get_columns("people")]
+        changed = False
         if "photo_url" not in existing_cols:
             conn.execute(text('ALTER TABLE "PEOPLE" ADD COLUMN photo_url TEXT'))
+            changed = True
+        if "phone" not in existing_cols:
+            conn.execute(text('ALTER TABLE "PEOPLE" ADD COLUMN phone TEXT'))
+            changed = True
+        if changed:
             conn.commit()
 except Exception as e:
-    print(f"[migration] photo_url 컬럼 추가 건너뜀: {e}")
+    print(f"[migration] PEOPLE 컬럼 추가 건너뜀: {e}")
 
 origins = [
     "http://localhost:5173",

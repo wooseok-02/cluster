@@ -18,6 +18,7 @@ async def create_people(
     age: int,
     relation: str,
     address: str,
+    phone: str,
     current_user: User,
     photo: Optional[UploadFile] = None,
 ):
@@ -48,6 +49,7 @@ async def create_people(
         age=age,
         relation=relation,
         address=address,
+        phone=phone,
         photo_url=photo_url,
         embedding=embedding,
         user_id=current_user.id
@@ -74,18 +76,34 @@ def get_people(db: Session, people_id , current_user : User):
         Schedule.user_id == current_user.id,
     ).all()
     schedule_by_date = {s.start_time.date(): s.id for s in schedules}
+    planned_schedules = db.query(Schedule).join(Schedule.people).filter(
+        Schedule.user_id == current_user.id,
+        People.id == people_id,
+        Schedule.status.in_(["Planned", "Planning"])
+    ).order_by(Schedule.start_time.asc()).all()
 
     return {
         "name" : people_info.name,
         "age" : people_info.age,
         "relation" : people_info.relation,
         "address" : people_info.address,
+        "phone" : people_info.phone,
         "photo_url" : people_info.photo_url,
         "count" : people_info.count,
         "status" : people_info.status,
         "logs" : [
             {"log_id": i.log_id, "date": i.date, "schedule_id": schedule_by_date.get(i.date)}
             for i in log
+        ],
+        "planned_schedules" : [
+            {
+                "id": schedule.id,
+                "title": schedule.title,
+                "date": schedule.start_time.date(),
+                "place_name": schedule.place.name if schedule.place else None,
+                "status": schedule.status
+            }
+            for schedule in planned_schedules
         ]
     }
 

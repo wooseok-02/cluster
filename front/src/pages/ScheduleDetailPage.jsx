@@ -76,6 +76,35 @@ const getSchedulePhotos = (schedule) => {
   return [schedule.photo_url, schedule.photo, schedule.image_url, schedule.image].map(getPhotoUrl).filter(Boolean)
 }
 
+const formatVerifyValue = (value) => value || '-'
+
+const getVerifyMessages = (result) => {
+  if (!result) return []
+  if (result.type === 'missing-exif' || result.exif_found === false) {
+    return [result.message || '사진의 날짜, 시간, 장소 정보를 확인할 수 없습니다. 기존 일정 정보는 유지됩니다.']
+  }
+
+  const messages = []
+  if (result.date_match === false) {
+    messages.push(`날짜가 다릅니다. 사진: ${formatVerifyValue(result.photo_date)} / 일정: ${formatVerifyValue(result.schedule_date)}`)
+  }
+  if (result.time_match === false) {
+    messages.push(`시간이 다릅니다. 사진: ${formatVerifyValue(result.photo_time)} / 일정: ${formatVerifyValue(result.schedule_start_time)}~${formatVerifyValue(result.schedule_end_time)}`)
+  }
+  if (result.location_match === false) {
+    messages.push(`장소가 다릅니다. 사진: ${formatVerifyValue(result.photo_place_name)} / 일정: ${formatVerifyValue(result.schedule_place_name)}`)
+  }
+  if (result.people_match === false) {
+    const photoPeople = result.matched_people_names?.length > 0 ? result.matched_people_names.join(', ') : '등록된 친구 없음'
+    const schedulePeople = result.schedule_people_names?.length > 0 ? result.schedule_people_names.join(', ') : '없음'
+    messages.push(`얼굴이 일정과 다릅니다. 사진: ${photoPeople} / 일정: ${schedulePeople}`)
+  }
+  if (result.unmatched_face_count > 0) {
+    messages.push(`등록되지 않은 얼굴 ${result.unmatched_face_count}명은 일정 친구로 채우지 않습니다.`)
+  }
+  return messages.length > 0 ? messages : ['사진 정보가 일정과 다릅니다.']
+}
+
 function BackIcon() {
   return (
     <svg width="30" height="30" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -121,6 +150,8 @@ export default function ScheduleDetailPage() {
   const [confirmPhotos, setConfirmPhotos] = useState([])
   const [confirmPhotoPreview, setConfirmPhotoPreview] = useState('')
   const [confirming, setConfirming] = useState(false)
+  const [analyzingPhoto, setAnalyzingPhoto] = useState(false)
+  const [analysisResult, setAnalysisResult] = useState(null)
   const [confirmError, setConfirmError] = useState('')
   const [selectedPhotoUrl, setSelectedPhotoUrl] = useState('')
   const confirmPhotoInputRef = useRef(null)
@@ -233,7 +264,7 @@ export default function ScheduleDetailPage() {
     setConfirmError('')
     setConfirming(true)
     try {
-      await confirmSchedule(id, confirmMemo, confirmPhotos)
+      await confirmSchedule(id, confirmMemo, confirmPhotos, analysisResult?.matched_people_ids || [])
       navigate('/calendar')
     } catch (err) {
       setConfirmError(err.response?.data?.detail || '확정에 실패했습니다.')
@@ -249,6 +280,7 @@ export default function ScheduleDetailPage() {
     if (confirmPhotoPreview) URL.revokeObjectURL(confirmPhotoPreview)
     setConfirmPhotos([file])
     setConfirmPhotoPreview(URL.createObjectURL(file))
+    setAnalysisResult(null)
     setConfirmError('')
   }
 
@@ -256,6 +288,7 @@ export default function ScheduleDetailPage() {
     if (confirmPhotoPreview) URL.revokeObjectURL(confirmPhotoPreview)
     setConfirmPhotoPreview('')
     setConfirmPhotos([])
+    setAnalysisResult(null)
     setVerifyPopup(null)
     if (confirmPhotoInputRef.current) confirmPhotoInputRef.current.value = ''
   }
@@ -293,9 +326,9 @@ export default function ScheduleDetailPage() {
     const photoPeopleIds =
       verifyPopup.photo_people_ids ||
       verifyPopup.people_ids ||
+      verifyPopup.matched_people_ids ||
       verifyPopup.detected_people_ids ||
       verifyPopup.people?.map?.((person) => person.id) ||
-      schedule.people?.map((person) => person.id) ||
       []
 
     const updated = await updateSchedule(id, {
@@ -310,50 +343,69 @@ export default function ScheduleDetailPage() {
     setSchedule(updated.data)
   }
 
-  const handleMismatchConfirm = async () => {
+  const handleAnalysisApply = async () => {
     setConfirmError('')
-    setConfirming(true)
+    setAnalyzingPhoto(true)
     try {
       if (verifyPopup?.type !== 'missing-exif') {
         await applyPhotoInfoToSchedule()
       }
+      setAnalysisResult(verifyPopup)
       setVerifyPopup(null)
-      await doConfirm()
     } catch (err) {
       const detail = err.response?.data?.detail
       setConfirmError(typeof detail === 'object' ? detail.message : detail || '사진 정보 반영에 실패했습니다.')
-      setConfirming(false)
+    } finally {
+      setAnalyzingPhoto(false)
+    }
+  }
+
+  const handleAnalyzePhoto = async () => {
+    if (confirmPhotos.length === 0) {
+      setConfirmError('분석할 사진을 먼저 선택해주세요.')
+      return
+    }
+
+    setConfirmError('')
+    setAnalyzingPhoto(true)
+    try {
+      const result = await verifyPhoto(id, confirmPhotos[0])
+      if (result.match) {
+        setAnalysisResult(result)
+        setVerifyPopup(null)
+      } else {
+        setVerifyPopup({
+          ...result,
+          type: result.exif_found === false ? 'missing-exif' : 'mismatch',
+        })
+      }
+    } catch (err) {
+      const detail = err.response?.data?.detail
+      const message = typeof detail === 'object'
+        ? detail.message
+        : detail || '사진 정보를 분석할 수 없습니다.'
+      setVerifyPopup({
+        type: 'missing-exif',
+        message,
+        exif_found: false,
+        date_match: false,
+        time_match: false,
+        location_match: false,
+        people_match: false,
+        schedule_date: start.date,
+        schedule_place_name: schedule.place?.name || '-',
+      })
+    } finally {
+      setAnalyzingPhoto(false)
     }
   }
 
   const handleConfirm = async () => {
-    // 사진이 있으면 첫 번째 사진으로 검증 먼저 수행
-    if (confirmPhotos.length > 0) {
-      setConfirming(true)
-      try {
-        const result = await verifyPhoto(id, confirmPhotos[0])
-        if (result.match) {
-          await doConfirm()
-        } else {
-          setVerifyPopup({ ...result, type: result.type || 'mismatch' })
-          setConfirming(false)
-        }
-      } catch (err) {
-        const detail = err.response?.data?.detail
-        const message = typeof detail === 'object'
-          ? detail.message
-          : detail || '사진에 GPS/EXIF 정보가 없어 일정과 비교할 수 없습니다.'
-        setVerifyPopup({
-          type: 'missing-exif',
-          message,
-          schedule_date: start.date,
-          schedule_place_name: schedule.place?.name || '-',
-        })
-        setConfirming(false)
-      }
-    } else {
-      await doConfirm()
+    if (confirmPhotos.length > 0 && !analysisResult) {
+      setConfirmError('사진을 먼저 분석해주세요.')
+      return
     }
+    await doConfirm()
   }
 
   if (loading) return <p className="!p-4">불러오는 중...</p>
@@ -387,18 +439,15 @@ export default function ScheduleDetailPage() {
                 ? '사진 정보를 확인할 수 없습니다.'
                 : '현재 계획된 일정과 다릅니다.'}
             </p>
-            {verifyPopup.type === 'missing-exif' ? (
-              <p className="!mt-4 text-sm leading-5 text-text-sub">
-                {verifyPopup.message}
-              </p>
-            ) : (
-              <div className="!mt-4 space-y-1 text-sm leading-5 text-text-sub">
-                <p>사진: {verifyPopup.photo_date ?? '-'} / {verifyPopup.photo_place_name ?? '-'}</p>
-                <p>일정: {verifyPopup.schedule_date ?? '-'} / {verifyPopup.schedule_place_name ?? '-'}</p>
-              </div>
-            )}
+            <div className="!mt-4 space-y-1 text-sm leading-5 text-text-sub">
+              {getVerifyMessages(verifyPopup).map((message) => (
+                <p key={message}>{message}</p>
+              ))}
+            </div>
             <p className="!mt-4 text-sm font-medium leading-5 text-text-main">
-              그래도 사진을 넣겠습니까?
+              {verifyPopup.type === 'missing-exif' || verifyPopup.exif_found === false
+                ? '그래도 사진을 추가하겠습니까?'
+                : '사진 기준으로 일정 정보를 바꾸고 추가하겠습니까?'}
             </p>
             <div className="!mt-5 flex gap-2">
               <button
@@ -410,8 +459,8 @@ export default function ScheduleDetailPage() {
               </button>
               <button
                 type="button"
-                onClick={handleMismatchConfirm}
-                disabled={confirming}
+                onClick={handleAnalysisApply}
+                disabled={analyzingPhoto}
                 className="flex-1 rounded-[10px] bg-primary !py-3 text-sm font-semibold text-white disabled:opacity-50"
               >
                 예
@@ -515,10 +564,10 @@ export default function ScheduleDetailPage() {
                 value={editForm.start_time}
                 onChange={(e) => setEditForm({ ...editForm, start_time: e.target.value })}
                 required
-                className="block h-10 w-full min-w-0 appearance-none rounded-[10px] border border-gray-400 bg-white !px-[10px] text-xs text-text-main outline-none focus:border-primary"
+                className="block h-11 w-full min-w-0 appearance-none rounded-[10px] border border-gray-400 bg-white !px-[10px] !py-0 text-sm leading-[44px] text-text-main outline-none focus:border-primary"
               />
             </div>
-            <span className="flex h-10 items-center justify-center text-xl leading-4 text-gray-400">~</span>
+            <span className="flex h-11 items-center justify-center text-xl leading-4 text-gray-400">~</span>
             <div className="flex min-w-0 flex-col gap-[10px]">
               <label className="text-sm font-medium leading-4 text-text-main">종료 시간</label>
               <input
@@ -526,7 +575,7 @@ export default function ScheduleDetailPage() {
                 value={editForm.end_time}
                 onChange={(e) => setEditForm({ ...editForm, end_time: e.target.value })}
                 required
-                className="block h-10 w-full min-w-0 appearance-none rounded-[10px] border border-gray-400 bg-white !px-[10px] text-xs text-text-main outline-none focus:border-primary"
+                className="block h-11 w-full min-w-0 appearance-none rounded-[10px] border border-gray-400 bg-white !px-[10px] !py-0 text-sm leading-[44px] text-text-main outline-none focus:border-primary"
               />
             </div>
           </div>
@@ -740,10 +789,26 @@ export default function ScheduleDetailPage() {
 
           {confirmError && <p className="!mt-2 text-xs text-red-500">{confirmError}</p>}
 
+          {analysisResult && (
+            <p className="!mt-2 text-xs font-medium leading-4 text-primary">
+              {analysisResult.match ? '분석 완료: 일정과 일치합니다.' : '분석 완료: 확인한 사진 정보를 반영했습니다.'}
+            </p>
+          )}
+
           <button
+            type="button"
+            onClick={handleAnalyzePhoto}
+            disabled={analyzingPhoto || confirmPhotos.length === 0}
+            className="!mt-[14px] flex w-full items-center justify-center rounded-[10px] border border-primary bg-white !px-[10px] !py-[13px] text-base font-semibold leading-4 text-primary disabled:opacity-50"
+          >
+            {analyzingPhoto ? '분석 중...' : '분석하기'}
+          </button>
+
+          <button
+            type="button"
             onClick={handleConfirm}
             disabled={confirming}
-            className="!mt-[14px] flex w-full items-center justify-center rounded-[10px] bg-primary !px-[10px] !py-[15px] text-base font-semibold leading-4 text-white disabled:opacity-50"
+            className="!mt-[8px] flex w-full items-center justify-center rounded-[10px] bg-primary !px-[10px] !py-[15px] text-base font-semibold leading-4 text-white disabled:opacity-50"
           >
             {confirming ? '확정 중...' : '확정'}
           </button>

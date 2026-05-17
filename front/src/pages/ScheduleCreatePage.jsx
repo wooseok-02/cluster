@@ -17,7 +17,6 @@ export default function ScheduleCreatePage() {
   const isFromPersonDetail = from === 'person' && personId
   // mount 시 한 번만 읽고 저장소 비움 — 다른 경로에서 진입 시 빈 배열
   const [pendingFiles] = useState(() => takePendingFiles())
-  const [photoPreviewUrl, setPhotoPreviewUrl] = useState('')
 
   const [form, setForm] = useState({ title: '', date: initialDate, start_time: '', end_time: '', memo: '' })
   const [selectedPeopleIds, setSelectedPeopleIds] = useState([])
@@ -32,13 +31,6 @@ export default function ScheduleCreatePage() {
 
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-
-  useEffect(() => {
-    if (pendingFiles.length === 0) return
-    const url = URL.createObjectURL(pendingFiles[0])
-    setPhotoPreviewUrl(url)
-    return () => URL.revokeObjectURL(url)
-  }, [pendingFiles])
 
   // 마운트 시 sessionStorage에 저장된 임시 폼 복원 (사람/장소 등록 후 돌아올 때)
   useEffect(() => {
@@ -136,7 +128,6 @@ export default function ScheduleCreatePage() {
     ? places.filter((pl) => pl.name.toLowerCase().startsWith(trimmedPlaceSearch))
     : []
   const backPath = isFromPersonDetail ? `/people/${personId}` : '/calendar'
-  const showPhotoSection = !isFromPersonDetail
 
   return (
     <div className="min-h-screen w-full max-w-[448px] mx-auto bg-white !pb-10">
@@ -188,16 +179,16 @@ export default function ScheduleCreatePage() {
             <input
               type="time" name="start_time" value={form.start_time}
               onChange={handleChange} required
-              className="block h-10 w-full min-w-0 appearance-none rounded-[10px] border border-gray-400 bg-white !px-[10px] text-xs text-text-main outline-none focus:border-primary"
+              className="block h-11 w-full min-w-0 appearance-none rounded-[10px] border border-gray-400 bg-white !px-[10px] !py-0 text-sm leading-[44px] text-text-main outline-none focus:border-primary"
             />
           </div>
-          <span className="flex h-10 items-center justify-center text-xl leading-4 text-gray-400">~</span>
+          <span className="flex h-11 items-center justify-center text-xl leading-4 text-gray-400">~</span>
           <div className="flex min-w-0 flex-col gap-[10px]">
             <label className="text-sm font-medium leading-4 text-text-main">종료 시간</label>
             <input
               type="time" name="end_time" value={form.end_time}
               onChange={handleChange} required
-              className="block h-10 w-full min-w-0 appearance-none rounded-[10px] border border-gray-400 bg-white !px-[10px] text-xs text-text-main outline-none focus:border-primary"
+              className="block h-11 w-full min-w-0 appearance-none rounded-[10px] border border-gray-400 bg-white !px-[10px] !py-0 text-sm leading-[44px] text-text-main outline-none focus:border-primary"
             />
           </div>
         </div>
@@ -301,25 +292,6 @@ export default function ScheduleCreatePage() {
             className="min-h-[50px] w-full resize-none rounded-[10px] border border-gray-400 bg-white !px-[10px] !py-2 text-sm text-text-main outline-none focus:border-primary"
           />
         </div>
-
-        {showPhotoSection && (
-          <div className="flex flex-col gap-[10px]">
-            <label className="text-sm font-medium leading-4 text-text-main">사진</label>
-            {photoPreviewUrl ? (
-              <div className="w-full overflow-hidden rounded-[10px] border border-gray-300 bg-gray-100">
-                <img
-                  src={photoPreviewUrl}
-                  alt="첨부된 사진 미리보기"
-                  className="h-[190px] w-full object-cover"
-                />
-              </div>
-            ) : (
-              <div className="flex h-[55px] w-[70px] items-center justify-center rounded-[10px] border border-gray-400 text-xl font-extralight leading-4 text-text-sub">
-                +
-              </div>
-            )}
-          </div>
-        )}
 
         {error && <p className="text-sm text-red-500">{error}</p>}
 

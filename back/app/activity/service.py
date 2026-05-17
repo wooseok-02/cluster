@@ -17,6 +17,7 @@ from people.model import People as PeopleModel  # People과 이름 충돌 방지
 from utils.geo import _haversine
 from utils.exif import _extract_info_from_exif
 import httpx
+import json
 
 
 # ── 사진 그룹화 ───────────────────────────────────────────────
@@ -291,14 +292,17 @@ def confirm_schedule(
 
     # 사진 GPS 기반 장소 결정 (커밋 전)
     if photo_bytes_list:
-        photo_lat, photo_lon, _ = _extract_info_from_exif(photo_bytes_list[0])
-        all_places = db.query(Place).filter(Place.user_id == current_user.id).all()
-        matched_place = next(
-            (p for p in all_places if _haversine(photo_lat, photo_lon, p.latitude, p.longitude) <= 200),
-            None
-        )
-        final_place_id = matched_place.id if matched_place else None
-        schedule.place_id = final_place_id
+        try:
+            photo_lat, photo_lon, _ = _extract_info_from_exif(photo_bytes_list[0])
+            all_places = db.query(Place).filter(Place.user_id == current_user.id).all()
+            matched_place = next(
+                (p for p in all_places if _haversine(photo_lat, photo_lon, p.latitude, p.longitude) <= 200),
+                None
+            )
+            final_place_id = matched_place.id if matched_place else schedule.place_id
+            schedule.place_id = final_place_id
+        except Exception:
+            final_place_id = schedule.place_id
     else:
         final_place_id = schedule.place_id
 
@@ -368,8 +372,33 @@ def confirm_schedule(
     return activity_log
 
 
+async def _detect_people_for_photo(db: Session, photo_bytes: bytes, current_user: User) -> dict:
+    people_list = db.query(PeopleModel).filter(
+        PeopleModel.user_id == current_user.id,
+        PeopleModel.embedding.isnot(None),
+    ).all()
+    candidates = [{"people_id": p.id, "embedding": p.embedding} for p in people_list]
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            response = await client.post(
+                f"{settings.AI_SERVER_URL}/detect",
+                files=[("photos", ("photo.jpg", photo_bytes, "image/jpeg"))],
+                data={
+                    "self_embedding": json.dumps(current_user.embedding) if current_user.embedding else "null",
+                    "candidates": json.dumps(candidates),
+                },
+            )
+        response.raise_for_status()
+        result = response.json()
+        if result:
+            return result[0]
+    except Exception as e:
+        print(f"[verify_photo] /detect 실패: {e}")
+    return {"matched_people_ids": [], "unmatched_count": 0, "self_detected": False}
+
+
 # ── 사진 검증 ─────────────────────────────────────────────────
-def verify_photo(db: Session, schedule_id: int, photo_bytes: bytes, current_user: User) -> dict:
+async def verify_photo(db: Session, schedule_id: int, photo_bytes: bytes, current_user: User) -> dict:
     """사진 EXIF와 일정의 날짜/장소를 비교해 매칭 여부 반환"""
     schedule = db.query(Schedule).filter(
         Schedule.id == schedule_id,
@@ -379,6 +408,8 @@ def verify_photo(db: Session, schedule_id: int, photo_bytes: bytes, current_user
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Schedule not found")
 
     schedule_date = schedule.start_time.date()
+    schedule_start_time = schedule.start_time.time()
+    schedule_end_time = schedule.end_time.time()
     schedule_place_name = None
     sched_place = None
     if schedule.place_id:
@@ -386,31 +417,59 @@ def verify_photo(db: Session, schedule_id: int, photo_bytes: bytes, current_user
         if sched_place:
             schedule_place_name = sched_place.name
 
+    schedule_people_ids = [person.id for person in schedule.people]
+    schedule_people_names = [person.name for person in schedule.people]
+    detect_result = await _detect_people_for_photo(db, photo_bytes, current_user)
+    matched_people_ids = detect_result.get("matched_people_ids", []) or []
+    unmatched_face_count = detect_result.get("unmatched_count", 0) or 0
+    matched_people = db.query(PeopleModel).filter(
+        PeopleModel.user_id == current_user.id,
+        PeopleModel.id.in_(matched_people_ids),
+    ).all() if matched_people_ids else []
+    matched_people_names = [person.name for person in matched_people]
+    people_match = set(matched_people_ids) == set(schedule_people_ids)
+
     # EXIF 추출 실패 시 match=false 반환 (예외 던지지 않음)
     try:
         photo_lat, photo_lon, photo_dt = _extract_info_from_exif(photo_bytes)
         photo_date = photo_dt.date()
+        photo_time = photo_dt.time().replace(second=0, microsecond=0)
     except Exception:
         return {
             "match": False,
+            "exif_found": False,
             "date_match": False,
+            "time_match": False,
             "location_match": False,
+            "people_match": people_match,
             "photo_date": None,
+            "photo_time": None,
             "photo_place_name": None,
+            "photo_place_id": None,
             "schedule_date": schedule_date,
+            "schedule_start_time": schedule_start_time,
+            "schedule_end_time": schedule_end_time,
             "schedule_place_name": schedule_place_name,
+            "matched_people_ids": matched_people_ids,
+            "matched_people_names": matched_people_names,
+            "schedule_people_ids": schedule_people_ids,
+            "schedule_people_names": schedule_people_names,
+            "unmatched_face_count": unmatched_face_count,
         }
 
     date_match = photo_date == schedule_date
+    time_match = schedule_start_time <= photo_time <= schedule_end_time
 
     # 장소 없는 일정이면 location_match=False
     location_match = False
     photo_place_name = None
+    photo_place_id = None
     if sched_place:
         dist = _haversine(photo_lat, photo_lon, sched_place.latitude, sched_place.longitude)
         location_match = dist <= 200
         if location_match:
             photo_place_name = sched_place.name
+            photo_place_id = sched_place.id
         else:
             # 200m 초과 시 가장 가까운 등록 장소 이름 표시
             all_places = db.query(Place).filter(Place.user_id == current_user.id).all()
@@ -418,15 +477,35 @@ def verify_photo(db: Session, schedule_id: int, photo_bytes: bytes, current_user
                 closest = min(all_places, key=lambda p: _haversine(photo_lat, photo_lon, p.latitude, p.longitude))
                 if _haversine(photo_lat, photo_lon, closest.latitude, closest.longitude) <= 200:
                     photo_place_name = closest.name
+                    photo_place_id = closest.id
+    else:
+        all_places = db.query(Place).filter(Place.user_id == current_user.id).all()
+        if all_places:
+            closest = min(all_places, key=lambda p: _haversine(photo_lat, photo_lon, p.latitude, p.longitude))
+            if _haversine(photo_lat, photo_lon, closest.latitude, closest.longitude) <= 200:
+                photo_place_name = closest.name
+                photo_place_id = closest.id
 
     return {
-        "match": date_match and location_match,
+        "match": date_match and time_match and location_match and people_match,
+        "exif_found": True,
         "date_match": date_match,
+        "time_match": time_match,
         "location_match": location_match,
+        "people_match": people_match,
         "photo_date": photo_date,
+        "photo_time": photo_time,
         "photo_place_name": photo_place_name,
+        "photo_place_id": photo_place_id,
         "schedule_date": schedule_date,
+        "schedule_start_time": schedule_start_time,
+        "schedule_end_time": schedule_end_time,
         "schedule_place_name": schedule_place_name,
+        "matched_people_ids": matched_people_ids,
+        "matched_people_names": matched_people_names,
+        "schedule_people_ids": schedule_people_ids,
+        "schedule_people_names": schedule_people_names,
+        "unmatched_face_count": unmatched_face_count,
     }
 
 

@@ -6,6 +6,7 @@ class PersonCreate(BaseModel):
     age: int
     relation: str
     address: str
+    phone: Optional[str] = None
     embedding: Optional[list[float]] = None
 
 class PersonData(BaseModel) :
@@ -14,6 +15,7 @@ class PersonData(BaseModel) :
     age : int
     relation : str
     address : str
+    phone : Optional[str] = None
     embedding: Optional[list[float]] = None
     photo_url : Optional[str] = None
     count : int
@@ -42,14 +44,21 @@ class PersonLog(BaseModel) :
     date : date
     schedule_id : Optional[int] = None
 
+class PersonPlannedSchedule(BaseModel) :
+    id : int
+    title : str
+    date : date
+    place_name : Optional[str] = None
+    status : str
+
 class PersonLoadDetail(BaseModel) :
     name : str
     age : int
     relation : str
     address : Optional[str]
+    phone : Optional[str] = None
     photo_url : Optional[str] = None
     count : int
     status : str
     logs : list[PersonLog]
-
-
+    planned_schedules : list[PersonPlannedSchedule] = []

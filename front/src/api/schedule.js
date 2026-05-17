@@ -32,12 +32,13 @@ export const updateSchedule = async (scheduleId, data) => {
   return response.data
 }
 
-export const confirmSchedule = async (scheduleId, memo, photos) => {
+export const confirmSchedule = async (scheduleId, memo, photos, matchedPeopleIds = []) => {
   const formData = new FormData()
   if (memo) formData.append('memo', memo)
   if (photos && photos.length > 0) {
     photos.forEach((photo) => formData.append('photos', photo))
   }
+  formData.append('matched_people_ids', JSON.stringify(matchedPeopleIds))
   const response = await axiosInstance.post(`/activity/confirm/${scheduleId}`, formData)
   return response.data
 }

@@ -10,6 +10,7 @@ class People(Base):
     age = Column(Integer)
     relation = Column(String)
     address = Column(String)
+    phone = Column(String)
     count = Column(Integer, default=0)
     status = Column(String, default="new")
     embedding = Column(JSON)
