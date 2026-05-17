@@ -175,11 +175,11 @@ export default function PhotoUploadPage() {
 
   return (
     <div className="min-h-screen w-full max-w-[448px] mx-auto bg-white !pb-[110px]">
-      <header className="sticky top-0 z-10 flex items-center justify-center bg-white !px-[23px] !pt-[70px] !pb-[10px]">
+      <header className="sticky top-0 z-10 flex items-center justify-center bg-white !px-[23px] !pt-5 !pb-[10px]">
         <button
           type="button"
           onClick={() => navigate('/calendar')}
-          className="absolute left-[23px] top-[62px] flex size-[30px] items-center justify-center text-text-main"
+          className="absolute left-[23px] top-3 flex size-[30px] items-center justify-center text-text-main"
           aria-label="뒤로"
         >
           <BackIcon />

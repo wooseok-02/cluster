@@ -176,7 +176,7 @@ export default function CalendarPage() {
   return (
     <div className="min-h-screen w-full max-w-[448px] mx-auto bg-white !pb-[118px]">
       {/* Header */}
-      <div className="!px-[30px] !pt-[62px] !pb-[22px] flex items-center justify-between">
+      <div className="!px-[30px] !pt-5 !pb-[22px] flex items-center justify-between">
         <h1 className="text-[26px] font-bold leading-none text-text-main">cluster</h1>
         <button
           onClick={() => navigate('/photo/upload')}

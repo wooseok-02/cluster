@@ -37,27 +37,33 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white pb-8">
-      <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between">
-        <button onClick={() => navigate('/')} className="text-gray-700" aria-label="Go back">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+    <div className="min-h-screen w-full max-w-[448px] mx-auto bg-white !pb-10">
+      <header className="flex items-center justify-between bg-white !px-[23px] !pt-5">
+        <button
+          onClick={() => navigate('/')}
+          className="flex size-[30px] items-center justify-center text-text-main"
+          aria-label="Go back"
+        >
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="M15 18L9 12L15 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </button>
-        <ClusterLogo size={48} />
-      </div>
+        <div className="!mr-[6px]">
+          <ClusterLogo size={72} />
+        </div>
+      </header>
 
-      <div className="px-6 py-8">
-        <h1 className="text-2xl font-bold text-gray-900 mb-8">회원가입</h1>
+      <main className="!px-[30px] !pt-12">
+        <h1 className="text-[22px] font-bold leading-4 text-text-main">회원가입</h1>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <form onSubmit={handleSubmit} className="!mt-[44px] flex flex-col gap-5">
           <input
             type="email"
             name="email"
             value={form.email}
             onChange={handleChange}
             placeholder="이메일"
-            className="w-full px-4 py-3.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-[#5B40E4] focus:ring-2 focus:ring-[#5B40E4]/10 transition-all"
+            className="h-10 w-full rounded-[10px] border border-people-status-old bg-white !px-5 text-xs leading-4 text-text-main outline-none placeholder:text-people-status-old focus:border-primary focus:ring-2 focus:ring-primary-light"
             required
           />
 
@@ -67,7 +73,7 @@ export default function RegisterPage() {
             value={form.password}
             onChange={handleChange}
             placeholder="비밀번호"
-            className="w-full px-4 py-3.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-[#5B40E4] focus:ring-2 focus:ring-[#5B40E4]/10 transition-all"
+            className="h-10 w-full rounded-[10px] border border-people-status-old bg-white !px-5 text-xs leading-4 text-text-main outline-none placeholder:text-people-status-old focus:border-primary focus:ring-2 focus:ring-primary-light"
             required
           />
 
@@ -77,7 +83,7 @@ export default function RegisterPage() {
             value={form.nick_name}
             onChange={handleChange}
             placeholder="닉네임"
-            className="w-full px-4 py-3.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-[#5B40E4] focus:ring-2 focus:ring-[#5B40E4]/10 transition-all"
+            className="h-10 w-full rounded-[10px] border border-people-status-old bg-white !px-5 text-xs leading-4 text-text-main outline-none placeholder:text-people-status-old focus:border-primary focus:ring-2 focus:ring-primary-light"
             required
           />
 
@@ -87,7 +93,7 @@ export default function RegisterPage() {
             value={form.age}
             onChange={handleChange}
             placeholder="나이"
-            className="w-full px-4 py-3.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-[#5B40E4] focus:ring-2 focus:ring-[#5B40E4]/10 transition-all"
+            className="h-10 w-full rounded-[10px] border border-people-status-old bg-white !px-5 text-xs leading-4 text-text-main outline-none placeholder:text-people-status-old focus:border-primary focus:ring-2 focus:ring-primary-light"
             required
           />
 
@@ -96,16 +102,16 @@ export default function RegisterPage() {
               name="gender"
               value={form.gender}
               onChange={handleChange}
-              className="w-full px-4 py-3.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-[#5B40E4] focus:ring-2 focus:ring-[#5B40E4]/10 transition-all appearance-none bg-white"
+              className="h-10 w-full appearance-none rounded-[10px] border border-people-status-old bg-white !px-5 !pr-10 text-xs leading-4 text-text-main outline-none focus:border-primary focus:ring-2 focus:ring-primary-light"
               required
             >
               <option value="">성별</option>
               <option value="man">남성</option>
               <option value="woman">여성</option>
             </select>
-            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
-              <svg width="12" height="8" viewBox="0 0 12 8" fill="none">
-                <path d="M1 1.5L6 6.5L11 1.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            <div className="pointer-events-none absolute right-5 top-1/2 -translate-y-1/2 text-people-status-old">
+              <svg width="17" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M7 10L12 15L17 10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </div>
           </div>
@@ -115,19 +121,19 @@ export default function RegisterPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-[#5B40E4] hover:bg-[#4A32C3] text-white font-semibold py-3.5 rounded-xl text-base transition-colors mt-4 disabled:opacity-50"
+            className="!mt-5 flex h-10 w-full items-center justify-center rounded-[10px] bg-primary !p-[10px] text-sm font-bold leading-4 text-white disabled:opacity-50"
           >
             {loading ? '가입 중...' : '회원가입'}
           </button>
         </form>
 
-        <p className="text-sm text-gray-600 text-center mt-6">
+        <p className="!mt-[26px] text-center text-xs font-medium leading-4 text-text-sub">
           이미 계정이 있으신가요?{' '}
-          <Link to="/" className="text-[#5B40E4] font-semibold hover:underline">
+          <Link to="/" className="font-bold text-primary">
             로그인
           </Link>
         </p>
-      </div>
+      </main>
     </div>
   )
 }

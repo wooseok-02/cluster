@@ -138,11 +138,11 @@ export default function ScheduleCreatePage() {
 
   return (
     <div className="min-h-screen w-full max-w-[448px] mx-auto bg-white !pb-10">
-      <header className="sticky top-0 z-10 flex items-center justify-center bg-white !px-[23px] !pt-[70px] !pb-[10px]">
+      <header className="sticky top-0 z-10 flex items-center justify-center bg-white !px-[23px] !pt-5 !pb-[10px]">
         <button
           type="button"
           onClick={() => navigate('/calendar')}
-          className="absolute left-[23px] top-[62px] flex size-[30px] items-center justify-center text-text-main"
+          className="absolute left-[23px] top-3 flex size-[30px] items-center justify-center text-text-main"
           aria-label="뒤로"
         >
           <svg width="30" height="30" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -167,11 +167,11 @@ export default function ScheduleCreatePage() {
         {/* 날짜 */}
         <div className="flex flex-col gap-[10px]">
           <label className="text-sm font-medium leading-4 text-text-main">날짜</label>
-          <div className="relative">
+          <div className="relative w-full min-w-0">
             <input
               type="date" name="date" value={form.date}
               onChange={handleChange} required
-              className="h-10 w-full rounded-[10px] border border-gray-400 bg-white !px-[10px] !pr-10 text-xs text-text-main outline-none focus:border-primary"
+              className="block h-10 w-full min-w-0 appearance-none rounded-[10px] border border-gray-400 bg-white !px-[10px] !pr-10 text-xs text-text-main outline-none focus:border-primary"
             />
             <svg className="pointer-events-none absolute right-[10px] top-1/2 -translate-y-1/2 text-text-sub" width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <path d="M7 2V5M17 2V5M4 9H20M6 4H18C19.1046 4 20 4.89543 20 6V19C20 20.1046 19.1046 21 18 21H6C4.89543 21 4 20.1046 4 19V6C4 4.89543 4.89543 4 6 4Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
@@ -180,22 +180,22 @@ export default function ScheduleCreatePage() {
         </div>
 
         {/* 시간 */}
-        <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-[10px]">
-          <div className="flex flex-col gap-[10px]">
+        <div className="grid w-full grid-cols-[minmax(0,1fr)_20px_minmax(0,1fr)] items-end gap-[10px]">
+          <div className="flex min-w-0 flex-col gap-[10px]">
             <label className="text-sm font-medium leading-4 text-text-main">시작 시간</label>
             <input
               type="time" name="start_time" value={form.start_time}
               onChange={handleChange} required
-              className="h-10 w-full rounded-[10px] border border-gray-400 bg-white !px-[10px] text-xs text-text-main outline-none focus:border-primary"
+              className="block h-10 w-full min-w-0 appearance-none rounded-[10px] border border-gray-400 bg-white !px-[10px] text-xs text-text-main outline-none focus:border-primary"
             />
           </div>
-          <span className="!pb-[10px] text-xl leading-4 text-gray-400">~</span>
-          <div className="flex flex-col gap-[10px]">
+          <span className="flex h-10 items-center justify-center text-xl leading-4 text-gray-400">~</span>
+          <div className="flex min-w-0 flex-col gap-[10px]">
             <label className="text-sm font-medium leading-4 text-text-main">종료 시간</label>
             <input
               type="time" name="end_time" value={form.end_time}
               onChange={handleChange} required
-              className="h-10 w-full rounded-[10px] border border-gray-400 bg-white !px-[10px] text-xs text-text-main outline-none focus:border-primary"
+              className="block h-10 w-full min-w-0 appearance-none rounded-[10px] border border-gray-400 bg-white !px-[10px] text-xs text-text-main outline-none focus:border-primary"
             />
           </div>
         </div>

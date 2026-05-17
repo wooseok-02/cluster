@@ -48,7 +48,7 @@ export default function PlaceDetailPage() {
 
   return (
     <div className="mx-auto min-h-screen w-full max-w-[448px] bg-white !pb-[48px]">
-      <header className="flex items-end !px-[23px] !pt-[70px] !pb-[10px]">
+      <header className="flex items-end !px-[23px] !pt-5 !pb-[10px]">
         <button
           type="button"
           onClick={() => navigate(-1)}

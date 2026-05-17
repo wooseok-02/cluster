@@ -48,7 +48,7 @@ export default function PeoplePage() {
 
   return (
     <div className="relative flex h-screen flex-col overflow-hidden bg-white !pb-[85px]">
-      <header className="relative z-20 shrink-0 bg-white !px-[30px] !pt-[64px] !pb-[14px]">
+      <header className="relative z-20 shrink-0 bg-white !px-[30px] !pt-5 !pb-[14px]">
         <h1 className="text-3xl font-bold leading-none text-text-main">cluster</h1>
       </header>
 

@@ -102,7 +102,7 @@ export default function MapPage() {
 
   return (
     <div className="mx-auto min-h-screen w-full max-w-[448px] bg-white !pb-[125px]">
-      <header className="!px-[30px] !pt-[70px] !pb-[30px]">
+      <header className="!px-[30px] !pt-5 !pb-[30px]">
         <h1 className="text-3xl font-bold leading-none text-text-main">cluster</h1>
       </header>
 

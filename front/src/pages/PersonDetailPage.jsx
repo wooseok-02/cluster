@@ -56,10 +56,13 @@ export default function PersonDetailPage() {
 
   if (loading) return <p className="!p-4">불러오는 중...</p>
   if (error) return <p className="!p-4 text-red-500">{error}</p>
+  if (!person) return <p className="!p-4 text-red-500">정보를 불러오는 데 실패했습니다.</p>
+
+  const logs = Array.isArray(person.logs) ? person.logs : []
 
   return (
     <div className="mx-auto min-h-screen w-full max-w-[448px] bg-white">
-      <header className="flex h-[102px] items-end !px-[23px] !pb-[5px]">
+      <header className="flex h-[50px] items-end !px-[23px] !pb-[5px]">
         <button
           type="button"
           onClick={() => navigate(-1)}
@@ -158,11 +161,11 @@ export default function PersonDetailPage() {
             </button>
           </div>
 
-          {person.logs.length === 0 ? (
+          {logs.length === 0 ? (
             <p className="!px-[30px] text-sm text-gray-400">아직 만남 기록이 없습니다.</p>
           ) : (
             <div className="flex flex-col gap-5">
-              {person.logs.slice(0, 3).map((log) => (
+              {logs.slice(0, 3).map((log) => (
                 <button
                   key={log.log_id}
                   type="button"

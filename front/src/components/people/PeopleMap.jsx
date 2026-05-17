@@ -87,7 +87,21 @@ function loadStoredLayout() {
 
 function saveStoredLayout(positions, connections) {
   if (typeof window === 'undefined') return
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ positions, connections }))
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ positions, connections }))
+  } catch {
+    // Layout persistence is optional; interaction should keep working if storage is blocked.
+  }
+}
+
+function capturePointer(target, pointerId) {
+  try {
+    if (!target.hasPointerCapture(pointerId)) {
+      target.setPointerCapture(pointerId)
+    }
+  } catch {
+    // Some browsers can reject pointer capture after a gesture changes target.
+  }
 }
 
 function CurrentUserNode({ user, myPhotoUrl, onPhotoClick, uploading, suppressClickRef }) {
@@ -189,7 +203,7 @@ export default function PeopleMap({ people, currentUser, myPhotoUrl, onPhotoClic
 
   const handlePointerDown = (event) => {
     if (nodeDragRef.current) return
-    event.currentTarget.setPointerCapture(event.pointerId)
+    capturePointer(event.currentTarget, event.pointerId)
     pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY })
     suppressClickRef.current = false
 
@@ -304,7 +318,7 @@ export default function PeopleMap({ people, currentUser, myPhotoUrl, onPhotoClic
 
   const handlePersonPointerDown = (person, event) => {
     event.stopPropagation()
-    event.currentTarget.setPointerCapture(event.pointerId)
+    capturePointer(event.currentTarget, event.pointerId)
     window.clearTimeout(nodeLongPressTimerRef.current)
 
     nodeDragRef.current = {

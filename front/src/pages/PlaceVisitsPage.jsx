@@ -33,7 +33,7 @@ export default function PlaceVisitsPage() {
 
   return (
     <div className="mx-auto min-h-screen w-full max-w-[448px] bg-white !pb-[64px]">
-      <header className="flex items-end !px-[23px] !pt-[70px] !pb-[31px]">
+      <header className="flex items-end !px-[23px] !pt-5 !pb-[31px]">
         <button
           type="button"
           onClick={() => navigate(-1)}

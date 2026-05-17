@@ -21,6 +21,40 @@ const toTimeInput = (isoString) => {
   return `${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`
 }
 
+const getPhotoUrl = (photo) => {
+  if (!photo) return ''
+  if (typeof photo === 'string') return photo
+  return photo.photo_url || photo.url || photo.image_url || photo.image || ''
+}
+
+const getSchedulePhotos = (schedule) => {
+  if (!schedule) return []
+  if (Array.isArray(schedule.photos)) return schedule.photos.map(getPhotoUrl).filter(Boolean)
+  return [schedule.photo_url, schedule.photo, schedule.image_url, schedule.image].map(getPhotoUrl).filter(Boolean)
+}
+
+function BackIcon() {
+  return (
+    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M15 18L9 12L15 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function InfoIcon({ type }) {
+  const paths = {
+    calendar: <path d="M7 2V5M17 2V5M4 9H20M6 4H18C19.1046 4 20 4.89543 20 6V19C20 20.1046 19.1046 21 18 21H6C4.89543 21 4 20.1046 4 19V6C4 4.89543 4.89543 4 6 4Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />,
+    time: <><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8" /><path d="M12 7.5V12L15 14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></>,
+    user: <><path d="M20 21C20 17.6863 16.4183 15 12 15C7.58172 15 4 17.6863 4 21" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /><circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="1.8" /></>,
+    place: <><path d="M12 21S6 15.686 6 10.5C6 7.186 8.686 4.5 12 4.5S18 7.186 18 10.5C18 15.686 12 21 12 21Z" stroke="currentColor" strokeWidth="1.8" /><circle cx="12" cy="10.5" r="2" stroke="currentColor" strokeWidth="1.8" /></>,
+  }
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      {paths[type]}
+    </svg>
+  )
+}
+
 export default function ScheduleDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -33,6 +67,7 @@ export default function ScheduleDetailPage() {
   const [confirmPhotos, setConfirmPhotos] = useState([])
   const [confirming, setConfirming] = useState(false)
   const [confirmError, setConfirmError] = useState('')
+  const [selectedPhotoUrl, setSelectedPhotoUrl] = useState('')
 
   // 사진 검증 팝업 상태
   const [verifyPopup, setVerifyPopup] = useState(null) // { photo_date, photo_place_name, schedule_date, schedule_place_name }
@@ -150,11 +185,12 @@ export default function ScheduleDetailPage() {
     }
   }
 
-  if (loading) return <p className="p-4">불러오는 중...</p>
-  if (error) return <p className="p-4 text-red-500">{error}</p>
+  if (loading) return <p className="!p-4">불러오는 중...</p>
+  if (error) return <p className="!p-4 text-red-500">{error}</p>
 
   const start = formatDateTime(schedule.start_time)
   const end = formatDateTime(schedule.end_time)
+  const schedulePhotos = getSchedulePhotos(schedule)
 
   const filteredPeople = people.filter((p) =>
     p.name.toLowerCase().includes(peopleSearch.toLowerCase())
@@ -164,11 +200,11 @@ export default function ScheduleDetailPage() {
   )
 
   return (
-    <div className="p-4 max-w-lg mx-auto pb-8">
+    <div className="min-h-screen w-full max-w-[448px] mx-auto bg-white !pb-[110px]">
       {/* 사진 검증 불일치 팝업 */}
       {verifyPopup && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 mx-4 w-full max-w-sm space-y-4">
+          <div className="bg-white rounded-xl !p-6 !mx-4 w-full max-w-sm space-y-4">
             <p className="font-semibold text-sm">사진 정보가 일정과 다릅니다.</p>
             <div className="text-sm space-y-1 text-gray-600">
               <p>사진: {verifyPopup.photo_date ?? '-'} / {verifyPopup.photo_place_name ?? '-'}</p>
@@ -192,32 +228,66 @@ export default function ScheduleDetailPage() {
           </div>
         </div>
       )}
-      <button onClick={() => navigate('/calendar')} className="text-gray-500 text-sm mb-4 block">
-        ← 뒤로
-      </button>
 
-      <div className="flex justify-between items-start mb-4">
-        <h1 className="text-2xl font-bold">{schedule.title}</h1>
-        <div className="flex items-center gap-2">
-          <span className={`text-xs px-2 py-1 rounded-full ${
-            schedule.status === 'Planned' ? 'bg-blue-100 text-blue-600' : 'bg-green-100 text-green-600'
-          }`}>
-            {schedule.status}
-          </span>
+      {selectedPhotoUrl && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/75 !px-4"
+          onClick={() => setSelectedPhotoUrl('')}
+        >
+          <button
+            type="button"
+            onClick={() => setSelectedPhotoUrl('')}
+            className="absolute right-5 top-5 flex size-10 items-center justify-center rounded-full bg-white/15 text-white"
+            aria-label="사진 닫기"
+          >
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+            </svg>
+          </button>
+          <img
+            src={selectedPhotoUrl}
+            alt="확대된 일정 사진"
+            className="max-h-[82vh] max-w-full rounded-[10px] object-contain"
+            onClick={(event) => event.stopPropagation()}
+          />
+        </div>
+      )}
+
+      <header className="sticky top-0 z-10 flex items-center justify-center bg-white !px-[23px] !pt-5 !pb-[10px]">
+        <button
+          type="button"
+          onClick={() => navigate('/calendar')}
+          className="absolute left-[23px] top-3 flex size-[30px] items-center justify-center text-text-main"
+          aria-label="뒤로"
+        >
+          <BackIcon />
+        </button>
+        <h1 className="text-base font-semibold leading-4 text-text-main">일정 확정</h1>
+      </header>
+
+      <main className="!px-[30px] !pt-[28px]">
+        <div className="flex items-center justify-between !mb-4">
+          <h2 className="text-xl font-bold leading-6 text-text-main">{schedule.title}</h2>
+          <div className="flex items-center gap-2">
+            <span className={`rounded-[3px] !px-[6px] text-[8px] leading-4 ${
+              schedule.status === 'Planned' ? 'bg-calendar-planning-bg text-calendar-planning' : 'bg-calendar-completed-bg text-calendar-completed'
+            }`}>
+              {schedule.status}
+            </span>
           {schedule.status === 'Planned' && !editing && (
             <button
               onClick={handleEditStart}
-              className="text-xs px-2 py-1 border rounded text-gray-600 hover:bg-gray-50"
+                className="rounded-[3px] border border-gray-border !px-[6px] text-[8px] leading-4 text-text-sub"
             >
               수정
             </button>
           )}
+          </div>
         </div>
-      </div>
 
       {/* 수정 폼 */}
       {editing && editForm ? (
-        <div className="border rounded p-4 space-y-4 mb-6">
+          <div className="border rounded !p-4 space-y-4 !mb-6">
           <h2 className="font-semibold text-sm">일정 수정</h2>
 
           <div>
@@ -365,54 +435,63 @@ export default function ScheduleDetailPage() {
         </div>
       ) : (
         /* 일정 정보 표시 */
-        <div className="border rounded p-4 space-y-2 mb-6">
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-500">날짜</span>
-            <span>{start.date}</span>
-          </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-500">시간</span>
-            <span>{start.time} ~ {end.time}</span>
-          </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-500">장소</span>
-            <span>{schedule.place?.name || '없음'}</span>
-          </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-500">동행인</span>
-            <span>
-              {schedule.people.length > 0
-                ? schedule.people.map((p) => p.name).join(', ')
-                : '없음'}
-            </span>
-          </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-500">메모</span>
-            <span className="text-right max-w-48">{schedule.memo || '-'}</span>
-          </div>
+          <section className="rounded-[10px] border border-text-sub !py-[10px] !pl-[20px] !pr-[10px]">
+            <div className="flex flex-col gap-[10px] !pl-[10px] !py-[10px]">
+              <div className="flex flex-col gap-[4px] text-[10px] font-medium leading-4 text-text-sub">
+                <div className="flex items-center gap-1">
+                  <InfoIcon type="calendar" />
+                  <span>날짜 |</span>
+                  <span>{start.date}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <InfoIcon type="time" />
+                  <span>시간 |</span>
+                  <span>{start.time}</span>
+                  <span>~</span>
+                  <span>{end.time}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <InfoIcon type="user" />
+                  <span>동행인 |</span>
+                  <span>{schedule.people?.length > 0 ? schedule.people.map((p) => p.name).join(', ') : '없음'}</span>
+                </div>
+                <p className="font-normal">{schedule.memo || '메모'}</p>
+                <div className="flex items-center gap-1">
+                  <InfoIcon type="place" />
+                  <span>{schedule.place?.name || '없음'}</span>
+                </div>
+              </div>
 
           {/* 사진 목록 */}
-          {schedule.photos && schedule.photos.length > 0 && (
-            <div className="pt-2">
-              <p className="text-xs text-gray-500 mb-2">사진 ({schedule.photos.length}장)</p>
-              <div className="grid grid-cols-3 gap-1">
-                {schedule.photos.map((photo) => (
-                  <img
-                    key={photo.id}
-                    src={photo.photo_url}
-                    alt="일정 사진"
-                    className="w-full aspect-square object-cover rounded"
-                  />
-                ))}
-              </div>
+              {schedulePhotos.length > 0 ? (
+                <div className="flex w-full snap-x snap-mandatory gap-2 overflow-x-auto !pt-[10px]">
+                  {schedulePhotos.map((photoUrl, index) => (
+                    <button
+                      key={`${photoUrl}-${index}`}
+                      type="button"
+                      onClick={() => setSelectedPhotoUrl(photoUrl)}
+                      className="h-[75px] w-[90px] shrink-0 snap-start overflow-hidden rounded-[5px] bg-gray-100"
+                    >
+                      <img
+                        src={photoUrl}
+                        alt="일정 사진"
+                        className="h-full w-full object-cover"
+                      />
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="!mt-[10px] flex h-[75px] w-[90px] items-center justify-center rounded-[5px] bg-gray-100 text-[10px] text-text-sub">
+                  사진 없음
+                </div>
+              )}
             </div>
-          )}
-        </div>
+          </section>
       )}
 
       {/* 확정 섹션 — Planned 상태이고 수정 모드가 아닐 때만 표시 */}
       {schedule.status === 'Planned' && !editing && (
-        <div className="border rounded p-4 space-y-3">
+          <div className="!mt-5 border rounded !p-4 space-y-3">
           <h2 className="font-semibold text-sm">일정 확정</h2>
 
           <div>
@@ -451,6 +530,7 @@ export default function ScheduleDetailPage() {
           </button>
         </div>
       )}
+      </main>
     </div>
   )
 }

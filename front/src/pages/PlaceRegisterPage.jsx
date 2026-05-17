@@ -55,7 +55,7 @@ export default function PlaceRegisterPage() {
   }
 
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-[448px] flex-col bg-white !px-[30px] !pt-[70px] !pb-[35px]">
+    <div className="mx-auto flex min-h-screen w-full max-w-[448px] flex-col bg-white !px-[30px] !pt-5 !pb-[35px]">
       <header className="flex h-[30px] shrink-0 items-center">
         <button
           type="button"
