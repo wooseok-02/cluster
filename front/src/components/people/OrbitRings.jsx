@@ -1,22 +1,24 @@
 const ORBIT_RINGS = [
-  { radius: 128, className: 'stroke-relation-family/70' },
-  { radius: 235, className: 'stroke-relation-etc/70' },
-  { radius: 335, className: 'stroke-relation-friend/65' },
-  { radius: 430, className: 'stroke-gray-300/80' },
+  { radius: 128, className: 'stroke-relation-family/95' },
+  { radius: 235, className: 'stroke-relation-etc/75' },
+  { radius: 335, className: 'stroke-relation-friend/55' },
+  { radius: 430, className: 'stroke-gray-300/45' },
 ]
 
 const GUIDE_DOTS = [
-  { x: 525, y: 228, className: 'bg-gray-300' },
-  { x: 364, y: 300, className: 'bg-relation-friend' },
+  { x: 525, y: 228, className: 'bg-gray-300/60' },
+  { x: 364, y: 300, className: 'bg-relation-friend/80' },
   { x: 334, y: 416, className: 'bg-relation-family' },
   { x: 558, y: 416, className: 'bg-relation-family' },
-  { x: 612, y: 280, className: 'bg-relation-friend' },
-  { x: 625, y: 612, className: 'bg-relation-friend' },
-  { x: 215, y: 695, className: 'bg-gray-300' },
-  { x: 530, y: 730, className: 'bg-gray-300' },
+  { x: 612, y: 280, className: 'bg-relation-friend/80' },
+  { x: 625, y: 612, className: 'bg-relation-friend/60' },
+  { x: 215, y: 695, className: 'bg-gray-300/50' },
+  { x: 530, y: 730, className: 'bg-gray-300/45' },
 ]
 
 export default function OrbitRings({ size = 900, center = 450 }) {
+  const offset = center - 450
+
   return (
     <>
       <svg
@@ -42,7 +44,7 @@ export default function OrbitRings({ size = 900, center = 450 }) {
         <span
           key={`${dot.x}-${dot.y}`}
           className={`pointer-events-none absolute h-[5px] w-[5px] rounded-full ${dot.className}`}
-          style={{ left: dot.x, top: dot.y }}
+          style={{ left: dot.x + offset, top: dot.y + offset }}
         />
       ))}
     </>
