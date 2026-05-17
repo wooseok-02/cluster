@@ -5,6 +5,13 @@ import { registerPerson } from '../api/people'
 const inputClassName =
   'h-10 w-full rounded-[10px] border border-gray-300 bg-white !px-[10px] text-xs leading-4 text-text-main placeholder:text-gray-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/10'
 
+const formatPhoneNumber = (value) => {
+  const digits = value.replace(/\D/g, '').slice(0, 11)
+  if (digits.length <= 3) return digits
+  if (digits.length <= 7) return `${digits.slice(0, 3)}-${digits.slice(3)}`
+  return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`
+}
+
 export default function PersonRegisterPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -22,7 +29,10 @@ export default function PersonRegisterPage() {
   const [loading, setLoading] = useState(false)
 
   const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value })
+    const value = e.target.name === 'phone'
+      ? formatPhoneNumber(e.target.value)
+      : e.target.value
+    setForm({ ...form, [e.target.name]: value })
   }
 
   const handlePhotoChange = (e) => {
@@ -40,7 +50,7 @@ export default function PersonRegisterPage() {
     setError('')
     setLoading(true)
     try {
-      await registerPerson({ ...form, age: Number(form.age), photo: photoFile })
+      await registerPerson({ ...form, phone: formatPhoneNumber(form.phone), age: Number(form.age), photo: photoFile })
       navigate(from === 'schedule' ? '/schedule/create' : '/people')
     } catch (err) {
       setError(err.response?.data?.detail || '등록에 실패했습니다.')
@@ -144,6 +154,8 @@ export default function PersonRegisterPage() {
               value={form.phone}
               onChange={handleChange}
               placeholder="예) 010-1234-5678"
+              inputMode="numeric"
+              maxLength={13}
               className={inputClassName}
             />
           </div>

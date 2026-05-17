@@ -12,6 +12,9 @@ export default function ScheduleCreatePage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const initialDate = searchParams.get('date') || ''
+  const from = searchParams.get('from')
+  const personId = searchParams.get('personId')
+  const isFromPersonDetail = from === 'person' && personId
   // mount 시 한 번만 읽고 저장소 비움 — 다른 경로에서 진입 시 빈 배열
   const [pendingFiles] = useState(() => takePendingFiles())
   const [photoPreviewUrl, setPhotoPreviewUrl] = useState('')
@@ -132,13 +135,15 @@ export default function ScheduleCreatePage() {
   const matchingPlaces = showPlaceMatches && trimmedPlaceSearch
     ? places.filter((pl) => pl.name.toLowerCase().startsWith(trimmedPlaceSearch))
     : []
+  const backPath = isFromPersonDetail ? `/people/${personId}` : '/calendar'
+  const showPhotoSection = !isFromPersonDetail
 
   return (
     <div className="min-h-screen w-full max-w-[448px] mx-auto bg-white !pb-10">
       <header className="sticky top-0 z-10 flex items-center justify-center bg-white !px-[23px] !pt-5 !pb-[10px]">
         <button
           type="button"
-          onClick={() => navigate('/calendar')}
+          onClick={() => navigate(backPath)}
           className="absolute left-[23px] top-3 flex size-[30px] items-center justify-center text-text-main"
           aria-label="뒤로"
         >
@@ -168,7 +173,7 @@ export default function ScheduleCreatePage() {
             <input
               type="date" name="date" value={form.date}
               onChange={handleChange} required
-              className="block h-10 w-full min-w-0 appearance-none rounded-[10px] border border-gray-400 bg-white !px-[10px] !pr-10 text-xs text-text-main outline-none focus:border-primary"
+              className="block h-11 w-full min-w-0 appearance-none rounded-[10px] border border-gray-400 bg-white !px-[10px] !pr-10 !py-0 text-sm leading-[44px] text-text-main outline-none focus:border-primary"
             />
             <svg className="pointer-events-none absolute right-[10px] top-1/2 -translate-y-1/2 text-text-sub" width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <path d="M7 2V5M17 2V5M4 9H20M6 4H18C19.1046 4 20 4.89543 20 6V19C20 20.1046 19.1046 21 18 21H6C4.89543 21 4 20.1046 4 19V6C4 4.89543 4.89543 4 6 4Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
@@ -297,23 +302,24 @@ export default function ScheduleCreatePage() {
           />
         </div>
 
-        {/* 사진 */}
-        <div className="flex flex-col gap-[10px]">
-          <label className="text-sm font-medium leading-4 text-text-main">사진</label>
-          {photoPreviewUrl ? (
-            <div className="w-full overflow-hidden rounded-[10px] border border-gray-300 bg-gray-100">
-              <img
-                src={photoPreviewUrl}
-                alt="첨부된 사진 미리보기"
-                className="h-[190px] w-full object-cover"
-              />
-            </div>
-          ) : (
-            <div className="flex h-[55px] w-[70px] items-center justify-center rounded-[10px] border border-gray-400 text-xl font-extralight leading-4 text-text-sub">
-              +
-            </div>
-          )}
-        </div>
+        {showPhotoSection && (
+          <div className="flex flex-col gap-[10px]">
+            <label className="text-sm font-medium leading-4 text-text-main">사진</label>
+            {photoPreviewUrl ? (
+              <div className="w-full overflow-hidden rounded-[10px] border border-gray-300 bg-gray-100">
+                <img
+                  src={photoPreviewUrl}
+                  alt="첨부된 사진 미리보기"
+                  className="h-[190px] w-full object-cover"
+                />
+              </div>
+            ) : (
+              <div className="flex h-[55px] w-[70px] items-center justify-center rounded-[10px] border border-gray-400 text-xl font-extralight leading-4 text-text-sub">
+                +
+              </div>
+            )}
+          </div>
+        )}
 
         {error && <p className="text-sm text-red-500">{error}</p>}
 

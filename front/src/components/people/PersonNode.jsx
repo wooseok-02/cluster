@@ -4,7 +4,7 @@ const STATUS_CONFIG = {
     node: 44,
     growth: 4,
     badge: 'bg-people-status-old',
-    ring: 'ring-people-status-old',
+    border: 'border-people-status-old',
     text: 'text-[6px]',
     badgePadding: '!px-[6px]',
   },
@@ -13,7 +13,7 @@ const STATUS_CONFIG = {
     node: 58,
     growth: 8,
     badge: 'bg-people-status-new',
-    ring: 'ring-people-status-new',
+    border: 'border-people-status-new',
     text: 'text-[8px]',
     badgePadding: '!px-[8px]',
   },
@@ -22,7 +22,7 @@ const STATUS_CONFIG = {
     node: 58,
     growth: 8,
     badge: 'bg-people-status-normal',
-    ring: 'ring-people-status-normal',
+    border: 'border-people-status-normal',
     text: 'text-[7px]',
     badgePadding: '!px-[8px]',
   },
@@ -31,7 +31,7 @@ const STATUS_CONFIG = {
     node: 72,
     growth: 10,
     badge: 'bg-people-status-best',
-    ring: 'ring-people-status-best',
+    border: 'border-people-status-best',
     text: 'text-[10px]',
     badgePadding: '!px-[10px]',
   },
@@ -108,7 +108,7 @@ export default function PersonNode({
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
-      className={`absolute flex -translate-x-1/2 -translate-y-1/2 touch-none flex-col items-center ${isDragging ? 'z-20 cursor-grabbing' : 'z-10 cursor-pointer'}`}
+      className={`absolute flex -translate-x-1/2 -translate-y-1/2 touch-none select-none flex-col items-center ${isDragging ? 'z-20 cursor-grabbing' : 'z-10 cursor-pointer'}`}
       style={{ left: x, top: y, width: Math.max(86, outerSize + 28) }}
       aria-label={person.name}
     >
@@ -117,7 +117,7 @@ export default function PersonNode({
       </span>
       <span className="relative flex flex-col items-center">
         <span
-          className={`flex items-center justify-center rounded-full shadow-md ring-2 ${config.ring} ${
+          className={`flex items-center justify-center rounded-full border shadow-md ${config.border} ${
             isConnecting || isSelected ? config.badge : 'bg-white'
           }`}
           style={{ width: outerSize, height: outerSize }}

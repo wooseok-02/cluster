@@ -585,7 +585,11 @@ export default function PeopleMap({ people, currentUser, myPhotoUrl, onPhotoClic
   }
 
   return (
-    <section className="relative min-h-0 flex-1 overflow-hidden bg-white" aria-label="People map">
+    <section
+      className="relative min-h-0 flex-1 select-none overflow-hidden bg-white"
+      style={{ WebkitUserSelect: 'none', WebkitTouchCallout: 'none' }}
+      aria-label="People map"
+    >
       <div className="pointer-events-none absolute left-[30px] top-[18px] z-20 flex flex-col gap-1">
         {RELATION_LEGEND.map((item) => (
           <span key={item.label} className="flex items-center gap-1 text-[9px] leading-none text-text-sub">
@@ -609,17 +613,21 @@ export default function PeopleMap({ people, currentUser, myPhotoUrl, onPhotoClic
 
       <div
         ref={viewportRef}
-        className="h-full w-full touch-none overflow-hidden"
+        className="h-full w-full touch-none select-none overflow-hidden"
+        style={{ WebkitUserSelect: 'none', WebkitTouchCallout: 'none' }}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerEnd}
         onPointerCancel={handlePointerEnd}
         onWheel={handleWheel}
+        onContextMenu={(event) => event.preventDefault()}
       >
         <div
-          className="relative h-[1600px] w-[1600px] origin-top-left"
+          className="relative h-[1600px] w-[1600px] select-none origin-top-left"
           style={{
             transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})`,
+            WebkitUserSelect: 'none',
+            WebkitTouchCallout: 'none',
           }}
         >
           <OrbitRings size={MAP_SIZE} center={MAP_CENTER} />

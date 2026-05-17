@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { getPersonDetail, updatePersonPhoto } from '../api/people'
 
+const SCHEDULE_DRAFT_KEY = 'scheduleFormDraft'
+
 const STATUS_LABELS = {
   new: 'New',
   best: 'Best',
@@ -21,6 +23,10 @@ function getLogPlace(log) {
   return log.place_name || log.place?.name || '-'
 }
 
+function getScheduleDate(item) {
+  return item.date || item.start_time?.slice?.(0, 10) || '-'
+}
+
 export default function PersonDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -28,6 +34,7 @@ export default function PersonDetailPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
+  const [activeList, setActiveList] = useState('recent')
   const fileInputRef = useRef(null)
 
   useEffect(() => {
@@ -54,11 +61,23 @@ export default function PersonDetailPage() {
     }
   }
 
+  const handleCreateSchedule = () => {
+    sessionStorage.setItem(SCHEDULE_DRAFT_KEY, JSON.stringify({
+      form: { title: '', date: '', start_time: '', end_time: '', memo: '' },
+      selectedPeopleIds: [Number(id)],
+      selectedPlaceId: null,
+    }))
+    navigate(`/schedule/create?from=person&personId=${id}`)
+  }
+
   if (loading) return <p className="!p-4">불러오는 중...</p>
   if (error) return <p className="!p-4 text-red-500">{error}</p>
   if (!person) return <p className="!p-4 text-red-500">정보를 불러오는 데 실패했습니다.</p>
 
   const logs = Array.isArray(person.logs) ? person.logs : []
+  const plannedSchedules = Array.isArray(person.planned_schedules) ? person.planned_schedules : []
+  const phone = person.phone || person.phone_number || person.phoneNumber || '-'
+  const visibleItems = activeList === 'recent' ? logs.slice(0, 3) : plannedSchedules
 
   return (
     <div className="mx-auto min-h-screen w-full max-w-[448px] bg-white">
@@ -129,7 +148,7 @@ export default function PersonDetailPage() {
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                   <path d="M6.5 4.5L9.25 3.75L11.2 8.2L9.55 9.25C10.45 11.1 11.9 12.55 13.75 13.45L14.8 11.8L19.25 13.75L18.5 16.5C18.25 17.4 17.45 18 16.52 18C10.72 18 6 13.28 6 7.48C6 6.55 6.6 5.75 7.5 5.5Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
-                <span className="truncate">{person.phone || '-'}</span>
+                <span className="truncate">{phone}</span>
               </p>
             </div>
           </div>
@@ -154,10 +173,25 @@ export default function PersonDetailPage() {
 
         <section className="!pb-8">
           <div className="flex items-center justify-between bg-white !px-[30px] !pt-[30px] !pb-5">
-            <h2 className="text-lg font-bold leading-4 text-black">최근 만남 기록</h2>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setActiveList('recent')}
+                className={`text-lg font-bold leading-4 ${activeList === 'recent' ? 'text-black' : 'text-people-status-old'}`}
+              >
+                최근 만남 기록
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveList('planned')}
+                className={`text-lg font-bold leading-4 ${activeList === 'planned' ? 'text-black' : 'text-people-status-old'}`}
+              >
+                계획된 일정
+              </button>
+            </div>
             <button
               type="button"
-              onClick={() => navigate('/schedule/create')}
+              onClick={handleCreateSchedule}
               className="flex items-center text-[10px] font-bold leading-4 text-primary"
             >
               <span>일정 등록</span>
@@ -167,24 +201,29 @@ export default function PersonDetailPage() {
             </button>
           </div>
 
-          {logs.length === 0 ? (
-            <p className="!px-[30px] text-sm text-gray-400">아직 만남 기록이 없습니다.</p>
+          {visibleItems.length === 0 ? (
+            <p className="!px-[30px] text-sm text-gray-400">
+              {activeList === 'recent' ? '아직 만남 기록이 없습니다.' : '계획된 일정이 없습니다.'}
+            </p>
           ) : (
             <div className="flex flex-col gap-5">
-              {logs.slice(0, 3).map((log) => (
+              {visibleItems.map((item) => (
                 <button
-                  key={log.log_id}
+                  key={activeList === 'recent' ? item.log_id : item.id}
                   type="button"
-                  disabled={!log.schedule_id}
-                  onClick={() => log.schedule_id && navigate(`/schedule/${log.schedule_id}`)}
+                  disabled={activeList === 'recent' && !item.schedule_id}
+                  onClick={() => {
+                    const scheduleId = activeList === 'recent' ? item.schedule_id : item.id
+                    if (scheduleId) navigate(`/schedule/${scheduleId}`)
+                  }}
                   className="flex w-full items-center bg-white !px-[30px] disabled:opacity-60"
                 >
                   <div className="flex min-w-0 flex-1 flex-col gap-[6px] text-left">
-                    <p className="truncate text-lg font-semibold leading-6 text-black">{getLogTitle(log)}</p>
-                    <p className="truncate text-sm leading-5 text-gray-400">{getLogPlace(log)}</p>
-                    <p className="text-sm leading-5 text-gray-400">{log.date}</p>
+                    <p className="truncate text-lg font-semibold leading-6 text-black">{activeList === 'recent' ? getLogTitle(item) : item.title}</p>
+                    <p className="truncate text-sm leading-5 text-gray-400">{activeList === 'recent' ? getLogPlace(item) : item.place_name || '-'}</p>
+                    <p className="text-sm leading-5 text-gray-400">{getScheduleDate(item)}</p>
                   </div>
-                  {log.schedule_id && (
+                  {(activeList === 'planned' || item.schedule_id) && (
                     <svg width="30" height="30" viewBox="0 0 30 30" fill="none" className="ml-4 shrink-0 text-black" aria-hidden="true">
                       <path d="M11.25 7.5L18.75 15L11.25 22.5" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>

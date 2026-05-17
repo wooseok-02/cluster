@@ -499,7 +499,7 @@ export default function ScheduleDetailPage() {
                 value={editForm.date}
                 onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
                 required
-                className="block h-10 w-full min-w-0 appearance-none rounded-[10px] border border-gray-400 bg-white !px-[10px] !pr-10 text-xs text-text-main outline-none focus:border-primary"
+                className="block h-11 w-full min-w-0 appearance-none rounded-[10px] border border-gray-400 bg-white !px-[10px] !pr-10 !py-0 text-sm leading-[44px] text-text-main outline-none focus:border-primary"
               />
               <svg className="pointer-events-none absolute right-[10px] top-1/2 -translate-y-1/2 text-text-sub" width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                 <path d="M7 2V5M17 2V5M4 9H20M6 4H18C19.1046 4 20 4.89543 20 6V19C20 20.1046 19.1046 21 18 21H6C4.89543 21 4 20.1046 4 19V6C4 4.89543 4.89543 4 6 4Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
@@ -709,7 +709,7 @@ export default function ScheduleDetailPage() {
               )}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-[10px] font-medium leading-4 text-text-main">일정과 비교할 사진을 1장 선택하세요.</p>
+              <p className="text-[10px] font-medium leading-4 text-text-main">일정에 삽입할 사진을 1장 선택하세요.</p>
               <p className="text-[8px] leading-4 text-people-status-old">날짜, 시간, 장소, 인물이 다르면 확인 후 반영할 수 있어요.</p>
               <div className="!mt-1 flex items-center gap-[6px]">
                 <button
