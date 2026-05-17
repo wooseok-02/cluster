@@ -1,23 +1,23 @@
 const ORBIT_RINGS = [
-  { radius: 128, className: 'stroke-relation-family/95' },
-  { radius: 235, className: 'stroke-relation-etc/75' },
-  { radius: 335, className: 'stroke-relation-friend/55' },
-  { radius: 430, className: 'stroke-gray-300/45' },
+  { radius: 155, className: 'stroke-relation-family' },
+  { radius: 295, className: 'stroke-relation-etc/90' },
+  { radius: 430, className: 'stroke-relation-friend/80' },
+  { radius: 555, className: 'stroke-gray-400/70' },
 ]
 
 const GUIDE_DOTS = [
-  { x: 525, y: 228, className: 'bg-gray-300/60' },
-  { x: 364, y: 300, className: 'bg-relation-friend/80' },
+  { x: 525, y: 228, className: 'bg-gray-400/75' },
+  { x: 364, y: 300, className: 'bg-relation-friend' },
   { x: 334, y: 416, className: 'bg-relation-family' },
   { x: 558, y: 416, className: 'bg-relation-family' },
-  { x: 612, y: 280, className: 'bg-relation-friend/80' },
-  { x: 625, y: 612, className: 'bg-relation-friend/60' },
-  { x: 215, y: 695, className: 'bg-gray-300/50' },
-  { x: 530, y: 730, className: 'bg-gray-300/45' },
+  { x: 612, y: 280, className: 'bg-relation-friend' },
+  { x: 625, y: 612, className: 'bg-relation-friend/85' },
+  { x: 215, y: 695, className: 'bg-gray-400/70' },
+  { x: 530, y: 730, className: 'bg-gray-400/65' },
 ]
 
 export default function OrbitRings({ size = 900, center = 450 }) {
-  const offset = center - 450
+  const scale = 1.24
 
   return (
     <>
@@ -33,7 +33,7 @@ export default function OrbitRings({ size = 900, center = 450 }) {
             cy={center}
             r={ring.radius}
             fill="none"
-            strokeWidth="1"
+            strokeWidth="1.6"
             strokeDasharray="3 4"
             className={ring.className}
           />
@@ -44,7 +44,10 @@ export default function OrbitRings({ size = 900, center = 450 }) {
         <span
           key={`${dot.x}-${dot.y}`}
           className={`pointer-events-none absolute h-[5px] w-[5px] rounded-full ${dot.className}`}
-          style={{ left: dot.x + offset, top: dot.y + offset }}
+          style={{
+            left: center + (dot.x - 450) * scale,
+            top: center + (dot.y - 450) * scale,
+          }}
         />
       ))}
     </>

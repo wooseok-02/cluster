@@ -7,12 +7,15 @@ import ZoomControls from './ZoomControls'
 const MAP_SIZE = 1600
 const MAP_CENTER = MAP_SIZE / 2
 const FIGMA_CENTER = 450
-const FIGMA_OFFSET = MAP_CENTER - FIGMA_CENTER
+const POSITION_SCALE = 1.24
 const MIN_ZOOM = 0.55
 const MAX_ZOOM = 1.8
 const ZOOM_STEP = 0.15
 const NODE_LONG_PRESS_MS = 450
 const NODE_CLICK_DELAY_MS = 220
+const TAP_MOVE_THRESHOLD = 14
+const EMPTY_DOUBLE_TAP_MS = 420
+const EMPTY_DOUBLE_TAP_DISTANCE = 44
 const STORAGE_KEY = 'cluster.peopleMap.layout.v1'
 
 const FIGMA_POSITIONS = [
@@ -44,13 +47,13 @@ function clamp(value, min, max) {
 function getPosition(index) {
   if (FIGMA_POSITIONS[index]) {
     return {
-      x: FIGMA_POSITIONS[index].x + FIGMA_OFFSET,
-      y: FIGMA_POSITIONS[index].y + FIGMA_OFFSET,
+      x: MAP_CENTER + (FIGMA_POSITIONS[index].x - FIGMA_CENTER) * POSITION_SCALE,
+      y: MAP_CENTER + (FIGMA_POSITIONS[index].y - FIGMA_CENTER) * POSITION_SCALE,
     }
   }
 
   const extraIndex = index - FIGMA_POSITIONS.length
-  const ring = 365 + (extraIndex % 3) * 45
+  const ring = 455 + (extraIndex % 3) * 75
   const angle = -Math.PI / 2 + extraIndex * 0.72
 
   return {
@@ -334,7 +337,7 @@ export default function PeopleMap({ people, currentUser, myPhotoUrl, onPhotoClic
     }
 
     if (pointersRef.current.size === 1) {
-      dragRef.current = { x: event.clientX, y: event.clientY, view }
+      dragRef.current = { x: event.clientX, y: event.clientY, view, moved: false }
       return
     }
 
@@ -382,7 +385,10 @@ export default function PeopleMap({ people, currentUser, myPhotoUrl, onPhotoClic
     if (points.length === 1 && dragRef.current.view) {
       const dx = event.clientX - dragRef.current.x
       const dy = event.clientY - dragRef.current.y
-      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) suppressClickRef.current = true
+      if (Math.abs(dx) <= TAP_MOVE_THRESHOLD && Math.abs(dy) <= TAP_MOVE_THRESHOLD) return
+
+      dragRef.current.moved = true
+      suppressClickRef.current = true
       setView(constrainView({
         ...dragRef.current.view,
         x: dragRef.current.view.x + dx,
@@ -392,6 +398,7 @@ export default function PeopleMap({ people, currentUser, myPhotoUrl, onPhotoClic
   }
 
   const handlePointerEnd = (event) => {
+    const wasMapDrag = Boolean(dragRef.current?.moved)
     pointersRef.current.delete(event.pointerId)
 
     if (selectionDragRef.current && selectionDragRef.current.pointerId === event.pointerId) {
@@ -417,13 +424,13 @@ export default function PeopleMap({ people, currentUser, myPhotoUrl, onPhotoClic
       return
     }
 
-    if (!suppressClickRef.current) {
+    if (!suppressClickRef.current && !wasMapDrag) {
       const previousTap = lastEmptyTapRef.current
       const currentTap = { time: Date.now(), x: event.clientX, y: event.clientY }
       if (
         previousTap &&
-        currentTap.time - previousTap.time < 320 &&
-        Math.hypot(currentTap.x - previousTap.x, currentTap.y - previousTap.y) < 28
+        currentTap.time - previousTap.time < EMPTY_DOUBLE_TAP_MS &&
+        Math.hypot(currentTap.x - previousTap.x, currentTap.y - previousTap.y) < EMPTY_DOUBLE_TAP_DISTANCE
       ) {
         setSelectionMode(true)
         setSelectionRect(null)
@@ -464,19 +471,29 @@ export default function PeopleMap({ people, currentUser, myPhotoUrl, onPhotoClic
     nodeClickTimerRef.current = window.setTimeout(() => {
       if (suppressClickRef.current) return
 
-      const personId = getPersonId(person)
-      if (connectionSourceId) {
-        if (connectionSourceId !== personId) {
-          const nextConnection = { fromId: connectionSourceId, toId: personId }
-          const nextKey = getConnectionKey(nextConnection.fromId, nextConnection.toId)
-          setConnections((current) => {
-            if (current.some((connection) => getConnectionKey(connection.fromId, connection.toId) === nextKey)) {
-              return current
+          const personId = getPersonId(person)
+          if (connectionSourceId) {
+            if (connectionSourceId !== personId) {
+              const nextConnection = { fromId: connectionSourceId, toId: personId }
+              const nextKey = getConnectionKey(nextConnection.fromId, nextConnection.toId)
+              const reverseKey = getConnectionKey(nextConnection.toId, nextConnection.fromId)
+              setConnections((current) => {
+                const existingConnection = current.find((connection) => {
+                  const key = getConnectionKey(connection.fromId, connection.toId)
+                  return key === nextKey || key === reverseKey
+                })
+
+                if (existingConnection) {
+                  return current.filter((connection) => {
+                    const key = getConnectionKey(connection.fromId, connection.toId)
+                    return key !== nextKey && key !== reverseKey
+                  })
+                }
+
+                return [...current, nextConnection]
+              })
             }
-            return [...current, nextConnection]
-          })
-        }
-        setConnectionSourceId(null)
+            setConnectionSourceId(null)
         return
       }
 
