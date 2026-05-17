@@ -1,8 +1,8 @@
 // 일정 생성 페이지 — 검색 필터로 People·Place 선택, 등록 후 복귀 시 폼 상태 복원
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { createSchedule, confirmSchedule } from '../api/schedule'
-import { takePendingFiles } from '../lib/pendingPhotos'
+import { createSchedule } from '../api/schedule'
+import { setPendingFiles, takePendingFiles } from '../lib/pendingPhotos'
 import { getPeopleList } from '../api/people'
 import { getPlaceList } from '../api/place'
 
@@ -105,13 +105,10 @@ export default function ScheduleCreatePage() {
         place_id: selectedPlaceId,
         people_ids: selectedPeopleIds,
       })
-      // 사진 업로드 플로우에서 넘어온 경우 사진과 함께 즉시 확정
       if (pendingFiles.length > 0) {
-        try {
-          await confirmSchedule(result.data.id, null, pendingFiles)
-        } catch {
-          // 확정 실패 시 일정은 유지되며, 사용자가 상세 화면에서 직접 확정 가능
-        }
+        setPendingFiles(pendingFiles)
+        navigate(`/schedule/${result.data.id}`)
+        return
       }
       navigate('/calendar')
     } catch (err) {

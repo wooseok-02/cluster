@@ -85,6 +85,7 @@ export default function PersonNode({
   const status = normalizeStatus(person.status)
   const config = STATUS_CONFIG[status]
   const nodeSize = getNodeSize(person, config)
+  const outerSize = nodeSize + 12
   const image = person.photo_url ?? person.photoUrl ?? null
 
   const handleClick = () => {
@@ -108,7 +109,7 @@ export default function PersonNode({
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
       className={`absolute flex -translate-x-1/2 -translate-y-1/2 touch-none flex-col items-center ${isDragging ? 'z-20 cursor-grabbing' : 'z-10 cursor-pointer'}`}
-      style={{ left: x, top: y, width: Math.max(86, nodeSize + 28) }}
+      style={{ left: x, top: y, width: Math.max(86, outerSize + 28) }}
       aria-label={person.name}
     >
       <span className="!mb-1 max-w-full truncate rounded-full bg-white/80 !px-2 text-center text-[10px] font-medium leading-4 text-text-main shadow-sm">
@@ -116,14 +117,21 @@ export default function PersonNode({
       </span>
       <span className="relative flex flex-col items-center">
         <span
-          className={`block overflow-hidden rounded-full bg-white shadow-md ring-2 ${config.ring} ${isConnecting || isSelected ? 'ring-4' : ''}`}
-          style={{ width: nodeSize, height: nodeSize }}
+          className={`flex items-center justify-center rounded-full shadow-md ring-2 ${config.ring} ${
+            isConnecting || isSelected ? config.badge : 'bg-white'
+          }`}
+          style={{ width: outerSize, height: outerSize }}
         >
-          {image ? (
-            <img src={image} alt={person.name} className="h-full w-full object-cover" draggable="false" />
-          ) : (
-            <DefaultAvatar size={nodeSize} />
-          )}
+          <span
+            className="block overflow-hidden rounded-full bg-primary-light"
+            style={{ width: nodeSize, height: nodeSize }}
+          >
+            {image ? (
+              <img src={image} alt={person.name} className="h-full w-full object-cover" draggable="false" />
+            ) : (
+              <DefaultAvatar size={nodeSize} />
+            )}
+          </span>
         </span>
         <span
           className={`-mt-3 rounded-full !py-[1px] text-center font-bold leading-4 text-white ${config.badge} ${config.badgePadding} ${config.text}`}

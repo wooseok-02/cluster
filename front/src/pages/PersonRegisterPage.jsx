@@ -14,6 +14,7 @@ export default function PersonRegisterPage() {
     age: '',
     relation: '',
     address: '',
+    phone: '',
   })
   const [preview, setPreview] = useState(null)
   const [photoFile, setPhotoFile] = useState(null)
@@ -131,6 +132,18 @@ export default function PersonRegisterPage() {
               value={form.address}
               onChange={handleChange}
               placeholder="예) 서울시 강남구"
+              className={inputClassName}
+            />
+          </div>
+
+          <div className="!mt-[25px] flex flex-col gap-[10px]">
+            <label className="text-sm font-medium leading-4 text-black">전화번호</label>
+            <input
+              type="tel"
+              name="phone"
+              value={form.phone}
+              onChange={handleChange}
+              placeholder="예) 010-1234-5678"
               className={inputClassName}
             />
           </div>

@@ -109,7 +109,7 @@ export default function PersonDetailPage() {
             onChange={handlePhotoChange}
           />
           <div className="min-w-0 flex-1">
-            <h1 className="truncate text-[22px] font-semibold leading-4 text-text-main">{person.name}</h1>
+            <h1 className="break-words text-[22px] font-semibold leading-7 text-text-main">{person.name}</h1>
             <div className="!mt-[15px] flex flex-col gap-[2px] text-sm leading-4 text-people-status-old">
               <p className="flex items-center gap-[5px]">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -124,6 +124,12 @@ export default function PersonDetailPage() {
                   <path d="M12 12.5C13.3807 12.5 14.5 11.3807 14.5 10C14.5 8.61929 13.3807 7.5 12 7.5C10.6193 7.5 9.5 8.61929 9.5 10C9.5 11.3807 10.6193 12.5 12 12.5Z" stroke="currentColor" strokeWidth="1.8" />
                 </svg>
                 <span className="truncate">{person.address || '-'}</span>
+              </p>
+              <p className="flex min-w-0 items-center gap-[5px]">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M6.5 4.5L9.25 3.75L11.2 8.2L9.55 9.25C10.45 11.1 11.9 12.55 13.75 13.45L14.8 11.8L19.25 13.75L18.5 16.5C18.25 17.4 17.45 18 16.52 18C10.72 18 6 13.28 6 7.48C6 6.55 6.6 5.75 7.5 5.5Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                <span className="truncate">{person.phone || '-'}</span>
               </p>
             </div>
           </div>

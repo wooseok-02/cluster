@@ -5,6 +5,7 @@ import { getSchedule, confirmSchedule, updateSchedule } from '../api/schedule'
 import { verifyPhoto } from '../api/activity'
 import { getPeopleList } from '../api/people'
 import { getPlaceList } from '../api/place'
+import { takePendingFiles } from '../lib/pendingPhotos'
 
 const formatDateTime = (isoString) => {
   const dt = new Date(isoString)
@@ -113,9 +114,10 @@ export default function ScheduleDetailPage() {
   const [schedule, setSchedule] = useState(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
+  const [initialConfirmFiles] = useState(() => takePendingFiles())
 
   // 확정 관련 상태
-  const [confirmMemo, setConfirmMemo] = useState('')
+  const confirmMemo = ''
   const [confirmPhotos, setConfirmPhotos] = useState([])
   const [confirmPhotoPreview, setConfirmPhotoPreview] = useState('')
   const [confirming, setConfirming] = useState(false)
@@ -135,6 +137,8 @@ export default function ScheduleDetailPage() {
   const [places, setPlaces] = useState([])
   const [peopleSearch, setPeopleSearch] = useState('')
   const [placeSearch, setPlaceSearch] = useState('')
+  const [showPeopleMatches, setShowPeopleMatches] = useState(false)
+  const [showPlaceMatches, setShowPlaceMatches] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
 
@@ -150,6 +154,13 @@ export default function ScheduleDetailPage() {
       if (confirmPhotoPreview) URL.revokeObjectURL(confirmPhotoPreview)
     }
   }, [confirmPhotoPreview])
+
+  useEffect(() => {
+    if (initialConfirmFiles.length === 0) return
+    const file = initialConfirmFiles[0]
+    setConfirmPhotos([file])
+    setConfirmPhotoPreview(URL.createObjectURL(file))
+  }, [initialConfirmFiles])
 
   // 수정 모드 진입 시 people/place 목록 로드
   const handleEditStart = () => {
@@ -178,15 +189,20 @@ export default function ScheduleDetailPage() {
     setEditing(false)
     setPeopleSearch('')
     setPlaceSearch('')
+    setShowPeopleMatches(false)
+    setShowPlaceMatches(false)
   }
 
   const toggleEditPerson = (pid) => {
     setEditPeopleIds((prev) =>
       prev.includes(pid) ? prev.filter((i) => i !== pid) : [...prev, pid]
     )
+    setPeopleSearch('')
+    setShowPeopleMatches(false)
   }
 
-  const handleSave = async () => {
+  const handleSave = async (event) => {
+    event?.preventDefault()
     setSaveError('')
     setSaving(true)
     try {
@@ -203,6 +219,8 @@ export default function ScheduleDetailPage() {
       setEditing(false)
       setPeopleSearch('')
       setPlaceSearch('')
+      setShowPeopleMatches(false)
+      setShowPlaceMatches(false)
     } catch (err) {
       const detail = err.response?.data?.detail
       setSaveError(typeof detail === 'object' ? detail.message : detail || '수정에 실패했습니다.')
@@ -345,12 +363,18 @@ export default function ScheduleDetailPage() {
   const end = formatDateTime(schedule.end_time)
   const schedulePhotos = getSchedulePhotos(schedule)
 
-  const filteredPeople = people.filter((p) =>
-    p.name.toLowerCase().includes(peopleSearch.toLowerCase())
-  )
-  const filteredPlaces = places.filter((pl) =>
-    pl.name.toLowerCase().includes(placeSearch.toLowerCase())
-  )
+  const selectedPeopleNames = people.length > 0
+    ? people.filter((p) => editPeopleIds.includes(p.id)).map((p) => p.name)
+    : schedule.people?.filter((p) => editPeopleIds.includes(p.id)).map((p) => p.name) || []
+  const selectedPlaceName = places.find((pl) => pl.id === editPlaceId)?.name || schedule.place?.name
+  const trimmedPeopleSearch = peopleSearch.trim().toLowerCase()
+  const trimmedPlaceSearch = placeSearch.trim().toLowerCase()
+  const matchingPeople = showPeopleMatches && trimmedPeopleSearch
+    ? people.filter((p) => p.name.toLowerCase().startsWith(trimmedPeopleSearch))
+    : []
+  const matchingPlaces = showPlaceMatches && trimmedPlaceSearch
+    ? places.filter((pl) => pl.name.toLowerCase().startsWith(trimmedPlaceSearch))
+    : []
 
   return (
     <div className="min-h-screen w-full max-w-[448px] mx-auto bg-white !pb-[110px]">
@@ -455,152 +479,172 @@ export default function ScheduleDetailPage() {
 
       {/* 수정 폼 */}
       {editing && editForm ? (
-          <div className="border rounded !p-4 space-y-4 !mb-6">
-          <h2 className="font-semibold text-sm">일정 수정</h2>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">일정 이름</label>
+        <form onSubmit={handleSave} className="flex flex-col gap-[15px] !mb-6">
+          <div className="flex flex-col gap-[10px]">
+            <label className="text-sm font-medium leading-4 text-text-main">일정 이름</label>
             <input
-              type="text" value={editForm.title}
+              type="text"
+              value={editForm.title}
               onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
-              className="w-full border rounded px-3 py-2 text-sm"
+              required
+              className="h-10 w-full rounded-[10px] border border-gray-400 bg-white !px-[10px] text-sm text-text-main outline-none focus:border-primary"
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-1">날짜</label>
-            <input
-              type="date" value={editForm.date}
-              onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
-              className="w-full border rounded px-3 py-2 text-sm"
-            />
-          </div>
-
-          <div className="flex gap-3">
-            <div className="flex-1">
-              <label className="block text-sm font-medium mb-1">시작 시간</label>
+          <div className="flex flex-col gap-[10px]">
+            <label className="text-sm font-medium leading-4 text-text-main">날짜</label>
+            <div className="relative w-full min-w-0">
               <input
-                type="time" value={editForm.start_time}
+                type="date"
+                value={editForm.date}
+                onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
+                required
+                className="block h-10 w-full min-w-0 appearance-none rounded-[10px] border border-gray-400 bg-white !px-[10px] !pr-10 text-xs text-text-main outline-none focus:border-primary"
+              />
+              <svg className="pointer-events-none absolute right-[10px] top-1/2 -translate-y-1/2 text-text-sub" width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M7 2V5M17 2V5M4 9H20M6 4H18C19.1046 4 20 4.89543 20 6V19C20 20.1046 19.1046 21 18 21H6C4.89543 21 4 20.1046 4 19V6C4 4.89543 4.89543 4 6 4Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </div>
+          </div>
+
+          <div className="grid w-full grid-cols-[minmax(0,1fr)_20px_minmax(0,1fr)] items-end gap-[10px]">
+            <div className="flex min-w-0 flex-col gap-[10px]">
+              <label className="text-sm font-medium leading-4 text-text-main">시작 시간</label>
+              <input
+                type="time"
+                value={editForm.start_time}
                 onChange={(e) => setEditForm({ ...editForm, start_time: e.target.value })}
-                className="w-full border rounded px-3 py-2 text-sm"
+                required
+                className="block h-10 w-full min-w-0 appearance-none rounded-[10px] border border-gray-400 bg-white !px-[10px] text-xs text-text-main outline-none focus:border-primary"
               />
             </div>
-            <div className="flex-1">
-              <label className="block text-sm font-medium mb-1">종료 시간</label>
+            <span className="flex h-10 items-center justify-center text-xl leading-4 text-gray-400">~</span>
+            <div className="flex min-w-0 flex-col gap-[10px]">
+              <label className="text-sm font-medium leading-4 text-text-main">종료 시간</label>
               <input
-                type="time" value={editForm.end_time}
+                type="time"
+                value={editForm.end_time}
                 onChange={(e) => setEditForm({ ...editForm, end_time: e.target.value })}
-                className="w-full border rounded px-3 py-2 text-sm"
+                required
+                className="block h-10 w-full min-w-0 appearance-none rounded-[10px] border border-gray-400 bg-white !px-[10px] text-xs text-text-main outline-none focus:border-primary"
               />
             </div>
           </div>
 
-          {/* 동행인 */}
-          <div>
-            <label className="block text-sm font-medium mb-1">
-              동행인
-              {editPeopleIds.length > 0 && (
-                <span className="ml-2 text-blue-500 font-normal text-xs">
-                  {people.filter((p) => editPeopleIds.includes(p.id)).map((p) => p.name).join(', ')}
-                </span>
-              )}
-            </label>
-            <input
-              type="text" value={peopleSearch}
-              onChange={(e) => setPeopleSearch(e.target.value)}
-              placeholder="이름으로 검색"
-              className="w-full border rounded px-3 py-1.5 text-sm mb-2"
-            />
-            {people.length === 0 ? (
-              <p className="text-gray-400 text-sm">등록된 인물이 없습니다.</p>
-            ) : filteredPeople.length === 0 ? (
-              <p className="text-gray-400 text-sm">검색 결과가 없습니다.</p>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                {filteredPeople.map((p) => (
+          <div className="flex flex-col gap-[6px]">
+            <div className="flex flex-col gap-[10px]">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium leading-4 text-text-main">
+                  동행인
+                  {selectedPeopleNames.length > 0 && (
+                    <span className="!ml-2 text-xs font-normal text-primary">{selectedPeopleNames.join(', ')}</span>
+                  )}
+                </label>
+              </div>
+              <input
+                type="text"
+                value={peopleSearch}
+                onChange={(e) => {
+                  setPeopleSearch(e.target.value)
+                  setShowPeopleMatches(true)
+                }}
+                placeholder="이름으로 검색"
+                className="h-10 w-full rounded-[10px] border border-gray-400 bg-white !px-[10px] text-xs text-text-main outline-none placeholder:text-gray-400 focus:border-primary"
+              />
+            </div>
+            {matchingPeople.length > 0 && (
+              <div className="flex flex-col overflow-hidden rounded-[10px] border border-gray-border bg-white">
+                {matchingPeople.map((person) => (
                   <button
-                    key={p.id} type="button"
-                    onClick={() => toggleEditPerson(p.id)}
-                    className={`px-3 py-1 rounded-full text-sm border transition-colors ${
-                      editPeopleIds.includes(p.id)
-                        ? 'bg-blue-500 text-white border-blue-500'
-                        : 'text-gray-600 border-gray-300 hover:border-blue-300'
+                    key={person.id}
+                    type="button"
+                    onClick={() => toggleEditPerson(person.id)}
+                    className={`w-full !px-[10px] !py-2 text-left text-xs leading-4 ${
+                      editPeopleIds.includes(person.id)
+                        ? 'bg-primary-light text-primary'
+                        : 'text-text-main active:bg-gray-50'
                     }`}
                   >
-                    {p.name}
+                    {person.name}
                   </button>
                 ))}
               </div>
             )}
           </div>
 
-          {/* 장소 */}
-          <div>
-            <label className="block text-sm font-medium mb-1">
-              장소
-              {editPlaceId && (
-                <span className="ml-2 text-green-600 font-normal text-xs">
-                  {places.find((pl) => pl.id === editPlaceId)?.name}
-                </span>
-              )}
-            </label>
-            <input
-              type="text" value={placeSearch}
-              onChange={(e) => setPlaceSearch(e.target.value)}
-              placeholder="장소명으로 검색"
-              className="w-full border rounded px-3 py-1.5 text-sm mb-2"
-            />
-            {places.length === 0 ? (
-              <p className="text-gray-400 text-sm">등록된 장소가 없습니다.</p>
-            ) : filteredPlaces.length === 0 ? (
-              <p className="text-gray-400 text-sm">검색 결과가 없습니다.</p>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                {filteredPlaces.map((pl) => (
+          <div className="flex flex-col gap-[6px]">
+            <div className="flex flex-col gap-[10px]">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium leading-4 text-text-main">
+                  장소
+                  {selectedPlaceName && (
+                    <span className="!ml-2 text-xs font-normal text-primary">{selectedPlaceName}</span>
+                  )}
+                </label>
+              </div>
+              <input
+                type="text"
+                value={placeSearch}
+                onChange={(e) => {
+                  setPlaceSearch(e.target.value)
+                  setShowPlaceMatches(true)
+                }}
+                placeholder="장소명으로 검색"
+                className="h-10 w-full rounded-[10px] border border-gray-400 bg-white !px-[10px] text-xs text-text-main outline-none placeholder:text-gray-400 focus:border-primary"
+              />
+            </div>
+            {matchingPlaces.length > 0 && (
+              <div className="flex flex-col overflow-hidden rounded-[10px] border border-gray-border bg-white">
+                {matchingPlaces.map((place) => (
                   <button
-                    key={pl.id} type="button"
-                    onClick={() => setEditPlaceId(editPlaceId === pl.id ? null : pl.id)}
-                    className={`px-3 py-1 rounded-full text-sm border transition-colors ${
-                      editPlaceId === pl.id
-                        ? 'bg-green-500 text-white border-green-500'
-                        : 'text-gray-600 border-gray-300 hover:border-green-300'
+                    key={place.id}
+                    type="button"
+                    onClick={() => {
+                      setEditPlaceId(place.id)
+                      setPlaceSearch('')
+                      setShowPlaceMatches(false)
+                    }}
+                    className={`w-full !px-[10px] !py-2 text-left text-xs leading-4 ${
+                      editPlaceId === place.id
+                        ? 'bg-primary-light text-primary'
+                        : 'text-text-main active:bg-gray-50'
                     }`}
                   >
-                    {pl.name}
+                    {place.name}
                   </button>
                 ))}
               </div>
             )}
           </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-1">메모</label>
+          <div className="flex flex-col gap-[10px]">
+            <label className="text-sm font-medium leading-4 text-text-main">메모</label>
             <textarea
               value={editForm.memo}
               onChange={(e) => setEditForm({ ...editForm, memo: e.target.value })}
-              rows={2}
-              className="w-full border rounded px-3 py-2 text-sm"
+              rows={3}
+              className="min-h-[50px] w-full resize-none rounded-[10px] border border-gray-400 bg-white !px-[10px] !py-2 text-sm text-text-main outline-none focus:border-primary"
             />
           </div>
 
-          {saveError && <p className="text-red-500 text-sm">{saveError}</p>}
+          {saveError && <p className="text-sm text-red-500">{saveError}</p>}
 
-          <div className="flex gap-2">
-            <button
-              onClick={handleEditCancel}
-              className="flex-1 border py-2 rounded text-sm text-gray-600"
-            >
-              취소
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="flex-1 bg-blue-500 text-white py-2 rounded text-sm disabled:opacity-50"
-            >
-              {saving ? '저장 중...' : '저장'}
-            </button>
-          </div>
-        </div>
+          <button
+            type="submit"
+            disabled={saving}
+            className="!mt-[3px] flex w-full items-center justify-center rounded-[10px] bg-primary !px-[10px] !py-[15px] text-base font-semibold leading-4 text-white disabled:opacity-50"
+          >
+            {saving ? '저장 중...' : '확인'}
+          </button>
+
+          <button
+            type="button"
+            onClick={handleEditCancel}
+            className="flex w-full items-center justify-center rounded-[10px] border border-gray-border !px-[10px] !py-[13px] text-sm font-semibold leading-4 text-text-sub"
+          >
+            취소
+          </button>
+        </form>
       ) : (
         /* 일정 정보 표시 */
           <section className="rounded-[10px] border border-text-sub !py-[10px] !pl-[20px] !pr-[10px]">
@@ -694,22 +738,14 @@ export default function ScheduleDetailPage() {
             className="hidden"
           />
 
-          <textarea
-            value={confirmMemo}
-            onChange={(e) => setConfirmMemo(e.target.value)}
-            rows={2}
-            placeholder="메모를 입력하세요"
-            className="!mt-3 w-full resize-none rounded-[5px] border border-gray-border bg-white !px-[10px] !py-2 text-xs leading-4 text-text-main outline-none focus:border-primary"
-          />
-
           {confirmError && <p className="!mt-2 text-xs text-red-500">{confirmError}</p>}
 
           <button
             onClick={handleConfirm}
-            disabled={confirming || confirmPhotos.length === 0}
-            className="!mt-[10px] flex w-full items-center justify-center rounded-[5px] bg-primary !px-[10px] !py-[6px] text-[10px] font-semibold leading-4 text-white disabled:opacity-50"
+            disabled={confirming}
+            className="!mt-[14px] flex w-full items-center justify-center rounded-[10px] bg-primary !px-[10px] !py-[15px] text-base font-semibold leading-4 text-white disabled:opacity-50"
           >
-            {confirming ? '분석 중...' : '분석 시작'}
+            {confirming ? '확정 중...' : '확정'}
           </button>
         </section>
       )}
