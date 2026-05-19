@@ -63,6 +63,10 @@ class ScheduleList(BaseModel):
     date : datetime
     title : str
     status : str
+    start_time : datetime
+    end_time : datetime
+    photos: List[PhotoInfo] = []
+    photo_count: int = 0
 
 # ── 응답 wrapper 스키마 ──────────────────────────────────────
 class ScheduleRead(BaseModel):

@@ -73,7 +73,12 @@ export default function PlaceVisitsPage() {
               const isLast = index === logs.length - 1
               const content = (
                 <>
-                  <span className="text-sm font-medium leading-4 text-black">{log.date}</span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-medium leading-4 text-black">{log.schedule_title || log.date}</span>
+                    {log.schedule_title && (
+                      <span className="!mt-1 block text-xs leading-4 text-gray-400">{log.date}</span>
+                    )}
+                  </span>
                   {log.schedule_id && (
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="text-gray-500" aria-hidden="true">
                       <path d="M9 6L15 12L9 18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />

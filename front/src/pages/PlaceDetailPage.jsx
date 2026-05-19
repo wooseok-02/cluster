@@ -142,8 +142,10 @@ export default function PlaceDetailPage() {
         ) : (
           <div className="flex flex-col gap-3">
             {companions.slice(0, 1).map((person) => (
-              <div
+              <button
                 key={person.id}
+                type="button"
+                onClick={() => navigate(`/people/${person.id}`)}
                 className="flex w-full items-center gap-5 rounded-[15px] border border-gray-200 bg-white !p-[15px] text-left shadow-[0_3px_3.5px_rgba(210,210,210,0.3)]"
               >
                 <span className="flex h-[70px] w-[70px] shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-light text-xl font-bold text-primary">
@@ -167,7 +169,7 @@ export default function PlaceDetailPage() {
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="shrink-0 text-gray-500" aria-hidden="true">
                   <path d="M9 6L15 12L9 18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
-              </div>
+              </button>
             ))}
           </div>
         )}
@@ -204,9 +206,10 @@ export default function PlaceDetailPage() {
                     <button
                       type="button"
                       onClick={() => navigate(`/schedule/${log.schedule_id}`)}
-                      className="text-sm font-medium leading-4 text-black"
+                      className="flex w-full items-center justify-between gap-3 text-left text-sm font-medium leading-4 text-black"
                     >
-                      {log.date}
+                      <span>{log.schedule_title || log.date}</span>
+                      <span className="shrink-0 text-xs font-normal text-gray-400">{log.date}</span>
                     </button>
                   ) : (
                     <span className="text-sm font-medium leading-4 text-black">{log.date}</span>

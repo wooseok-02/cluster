@@ -178,15 +178,43 @@ def update_schedule(db: Session, schedule_id: int, update_data: ScheduleUpdate, 
 
 
 def scheList(db : Session, year, month, current_user) :
-    List = db.query(Schedule).filter(
+    schedule_list = db.query(Schedule).filter(
         Schedule.user_id == current_user.id,
         extract("year", Schedule.start_time) == year,
         extract("month", Schedule.start_time) == month
     ).all()
 
-    if not List :
+    if not schedule_list :
         raise HTTPException(
             status_code = status.HTTP_404_NOT_FOUND,
             detail = "일치하는 날짜의 일정을 찾지 못했습니다."
         )
-    return [{"id": i.id, "date": i.start_time, "title": i.title, "status": i.status} for i in List]
+
+    response = []
+    for schedule in schedule_list:
+        photos = []
+        if schedule.status == "Completed":
+            activity = db.query(ActivityLog).filter(
+                ActivityLog.user_id == current_user.id,
+                ActivityLog.date == schedule.start_time.date(),
+                ActivityLog.place_id == schedule.place_id,
+            ).first()
+            if activity:
+                photos = db.query(Photo).filter(Photo.log_id == activity.log_id).all()
+
+        serialized_photos = [
+            {"id": photo.id, "photo_url": get_signed_photo_url(photo.photo_url)}
+            for photo in photos
+        ]
+        response.append({
+            "id": schedule.id,
+            "date": schedule.start_time,
+            "title": schedule.title,
+            "status": schedule.status,
+            "start_time": schedule.start_time,
+            "end_time": schedule.end_time,
+            "photos": serialized_photos,
+            "photo_count": len(serialized_photos),
+        })
+
+    return response
