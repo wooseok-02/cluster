@@ -6,6 +6,8 @@ from config.database import get_db
 from auth.model import User
 from auth.token import get_current_user
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
+from utils.file_validation import validate_image
+from utils.cloudinary import get_signed_photo_url
 
 router = APIRouter(
     prefix="/auth",
@@ -70,7 +72,7 @@ def get_me(current_user: User = Depends(get_current_user)):
         "nick_name": current_user.nick_name,
         "age": current_user.age,
         "gender": current_user.gender,
-        "photo_url": current_user.photo_url,
+        "photo_url": get_signed_photo_url(current_user.photo_url),
     }
 
 
@@ -88,9 +90,10 @@ async def upload_my_photo(
     - 얼굴이 감지되지 않으면 400 에러 반환
     - 임베딩과 사진 URL을 DB에 저장
     """
+    await validate_image(photo)
     user = await update_user_photo(db, photo, current_user)
     return {
         "status": 200,
         "message": "프로필 사진이 업데이트되었습니다.",
-        "photo_url": user.photo_url,
+        "photo_url": get_signed_photo_url(user.photo_url),
     }

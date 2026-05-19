@@ -189,6 +189,13 @@ export default function PeopleMap({ people, currentUser, myPhotoUrl, onPhotoClic
   const [selectionRect, setSelectionRect] = useState(null)
   const [selectedPersonIds, setSelectedPersonIds] = useState([])
 
+  const clearSelection = () => {
+    setSelectionMode(false)
+    setSelectionRect(null)
+    setSelectedPersonIds([])
+    lastEmptyTapRef.current = null
+  }
+
   const constrainView = (nextView) => {
     if (!viewportRef.current) return nextView
 
@@ -320,9 +327,18 @@ export default function PeopleMap({ people, currentUser, myPhotoUrl, onPhotoClic
     pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY })
 
     const point = getMapPointFromPointer(event)
-    if (pointersRef.current.size === 1 && selectedPersonIds.length > 0 && isPointInRect(point, selectionRect)) {
-      groupDragRef.current = getGroupDragState(event)
+    if (pointersRef.current.size === 1 && selectionRect && selectedPersonIds.length > 0) {
+      if (isPointInRect(point, selectionRect)) {
+        groupDragRef.current = getGroupDragState(event)
+        suppressClickRef.current = true
+        return
+      }
+
+      clearSelection()
       suppressClickRef.current = true
+      window.setTimeout(() => {
+        suppressClickRef.current = false
+      }, NODE_CLICK_DELAY_MS)
       return
     }
 
@@ -519,9 +535,18 @@ export default function PeopleMap({ people, currentUser, myPhotoUrl, onPhotoClic
     window.clearTimeout(nodeLongPressTimerRef.current)
 
     const personId = getPersonId(person)
-    if (selectionRect && selectedPersonIds.includes(personId)) {
-      groupDragRef.current = getGroupDragState(event)
+    if (selectionRect) {
+      if (selectedPersonIds.includes(personId)) {
+        groupDragRef.current = getGroupDragState(event)
+        suppressClickRef.current = true
+        return
+      }
+
+      clearSelection()
       suppressClickRef.current = true
+      window.setTimeout(() => {
+        suppressClickRef.current = false
+      }, NODE_CLICK_DELAY_MS)
       return
     }
 

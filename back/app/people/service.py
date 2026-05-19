@@ -9,8 +9,24 @@ from activity.model import ActivityLog, log_people
 from schedule.model import Schedule
 from config.config import settings
 import asyncio
-import cloudinary.uploader
+import io
 import httpx
+from utils.cloudinary import get_signed_photo_url, upload_authenticated_photo
+
+
+def serialize_person(person: People) -> dict:
+    return {
+        "id": person.id,
+        "name": person.name,
+        "age": person.age,
+        "relation": person.relation,
+        "address": person.address,
+        "phone": person.phone,
+        "embedding": person.embedding,
+        "photo_url": get_signed_photo_url(person.photo_url),
+        "count": person.count,
+        "status": person.status,
+    }
 
 async def create_people(
     db: Session,
@@ -30,19 +46,19 @@ async def create_people(
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(
                 f"{settings.AI_SERVER_URL}/embed",
-                files={"file": ("photo.jpg", photo_bytes, "image/jpeg")}
+                files={"file": ("photo.jpg", photo_bytes, "image/jpeg")},
+                headers={"X-API-KEY": settings.AI_SERVER_SECRET},
             )
         response.raise_for_status()
         embedding = response.json()["embedding"]
 
         #cloudinary IO 자체가 비동기이기 때문에, 별도 스레드 풀에 던진다.
         loop = asyncio.get_running_loop()
-        import io
-        result = await loop.run_in_executor(None,lambda : cloudinary.uploader.upload(
+        result = await loop.run_in_executor(None,lambda : upload_authenticated_photo(
             io.BytesIO(photo_bytes),
             folder="cluster/people"
         ))
-        photo_url = result["secure_url"]
+        photo_url = result["public_id"]
 
     new_people = People(
         name=name,
@@ -88,7 +104,7 @@ def get_people(db: Session, people_id , current_user : User):
         "relation" : people_info.relation,
         "address" : people_info.address,
         "phone" : people_info.phone,
-        "photo_url" : people_info.photo_url,
+        "photo_url" : get_signed_photo_url(people_info.photo_url),
         "count" : people_info.count,
         "status" : people_info.status,
         "logs" : [
@@ -115,28 +131,19 @@ async def update_person_photo(db: Session, people_id: int, photo: UploadFile, cu
     if not person:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="사람을 찾을 수 없습니다.")
 
-    import cloudinary
-    import cloudinary.uploader
-    import io
-    from urllib.parse import urlparse
-    parsed = urlparse(settings.CLOUDINARY_URL)
-    cloudinary.config(
-        cloud_name=parsed.hostname,
-        api_key=parsed.username,
-        api_secret=parsed.password,
-    )
     photo_bytes = await photo.read()
 
     async with httpx.AsyncClient(timeout=30.0) as client:
         response = await client.post(
             f"{settings.AI_SERVER_URL}/embed",
-            files={"file": ("photo.jpg", photo_bytes, "image/jpeg")}
+            files={"file": ("photo.jpg", photo_bytes, "image/jpeg")},
+            headers={"X-API-KEY": settings.AI_SERVER_SECRET},
         )
     response.raise_for_status()
     embedding = response.json()["embedding"]
 
-    result = cloudinary.uploader.upload(io.BytesIO(photo_bytes), folder="cluster/people")
-    person.photo_url = result["secure_url"]
+    result = upload_authenticated_photo(io.BytesIO(photo_bytes), folder="cluster/people")
+    person.photo_url = result["public_id"]
     person.embedding = embedding
     db.commit()
     db.refresh(person)
@@ -152,4 +159,4 @@ def load_personList(db : Session, current_user : User) :
             status_code= status.HTTP_404_NOT_FOUND,
             detail = "등록된 사람이 없습니다."
         )
-    return personList
+    return [serialize_person(person) for person in personList]

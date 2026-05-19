@@ -2,10 +2,11 @@ from fastapi import APIRouter, Depends, UploadFile, File, Form
 from typing import Optional
 from sqlalchemy.orm import Session
 from people.schema import PersonRead, PersonListRead, PersonLoadDetail
-from people.service import create_people, get_people, load_personList, update_person_photo
+from people.service import create_people, get_people, load_personList, serialize_person, update_person_photo
 from config.database import get_db
 from auth.token import get_current_user
 from people.model import People
+from utils.file_validation import validate_image
 
 router = APIRouter(
     prefix="/people",
@@ -35,7 +36,7 @@ async def register_people(
     return {
         "status": 200,
         "message": "People registered successfully",
-        "data": new_people
+        "data": serialize_person(new_people)
     }
 
 @router.get("/load/people/{people_id}", response_model=PersonLoadDetail)
@@ -64,11 +65,12 @@ async def patch_person_photo(
     - AI 서버에서 새 사진의 얼굴 임베딩을 추출 후 Cloudinary에 업로드
     - 기존 임베딩과 사진 URL을 새 값으로 덮어씀
     """
+    await validate_image(photo)
     person = await update_person_photo(db, people_id, photo, current_user)
     return {
         "status": 200,
         "message": "사진이 업데이트되었습니다.",
-        "data": person
+        "data": serialize_person(person)
     }
 
 

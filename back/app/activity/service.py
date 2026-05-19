@@ -4,6 +4,7 @@
 #                                    → [매칭 Schedule 없음] register_schedule → confirm_schedule
 # 수동 생성: register_schedule → confirm_schedule
 
+import asyncio
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, UploadFile, status
 from datetime import date
@@ -18,6 +19,23 @@ from utils.geo import _haversine
 from utils.exif import _extract_info_from_exif
 import httpx
 import json
+import io
+from utils.cloudinary import get_signed_photo_url, upload_authenticated_photo
+
+
+def serialize_activity_log(activity_log: ActivityLog) -> dict:
+    return {
+        "log_id": activity_log.log_id,
+        "date": activity_log.date,
+        "time": activity_log.time,
+        "memo": activity_log.memo,
+        "place": activity_log.place,
+        "people": activity_log.people,
+        "photos": [
+            {"id": photo.id, "photo_url": get_signed_photo_url(photo.photo_url)}
+            for photo in activity_log.photos
+        ],
+    }
 
 
 # ── 사진 그룹화 ───────────────────────────────────────────────
@@ -118,6 +136,16 @@ async def upload_photos(db: Session, photos: list, current_user: User) -> dict:
     """EXIF 추출 → ai_server /detect 1회 → 그룹화 → 일정 매칭 결과 반환 (DB 저장 없음)"""
     import json
 
+    # DB People 쿼리를 백그라운드 태스크로 시작 (EXIF 추출과 병렬 실행)
+    def _query_candidates():
+        people_list = db.query(PeopleModel).filter(
+            PeopleModel.user_id == current_user.id,
+            PeopleModel.embedding.isnot(None),
+        ).all()
+        return [{"people_id": p.id, "embedding": p.embedding} for p in people_list]
+
+    candidates_task = asyncio.create_task(asyncio.to_thread(_query_candidates))
+
     # 사진업로드 파이프라인 1번: 사진 bytes 읽기 및 EXIF 추출
     # — photo_index로 각 사진을 추적, EXIF 없는 사진은 datetime/위치를 None으로 보관
     photos_data = []
@@ -152,13 +180,8 @@ async def upload_photos(db: Session, photos: list, current_user: User) -> dict:
             detail="유효한 사진이 없습니다"
         )
 
-    # 사진업로드 파이프라인 2번: DB People 쿼리 (1회)
-    # — embedding이 있는 People만 candidates로 구성
-    people_list = db.query(PeopleModel).filter(
-        PeopleModel.user_id == current_user.id,
-        PeopleModel.embedding.isnot(None),
-    ).all()
-    candidates = [{"people_id": p.id, "embedding": p.embedding} for p in people_list]
+    # 사진업로드 파이프라인 2번: DB People 쿼리 결과 수집 (EXIF 추출과 병렬로 실행됨)
+    candidates = await candidates_task
     print(f"[upload_photos] DB People 쿼리: 1회 — {len(candidates)}명")
 
     # 사진업로드 파이프라인 3번: ai_server POST /detect 호출 (1회)
@@ -176,6 +199,7 @@ async def upload_photos(db: Session, photos: list, current_user: User) -> dict:
                 f"{settings.AI_SERVER_URL}/detect",
                 files=files,
                 data=data,
+                headers={"X-API-KEY": settings.AI_SERVER_SECRET},
             )
         response.raise_for_status()
         detect_result = response.json()
@@ -354,15 +378,12 @@ def confirm_schedule(
 
     # 사진이 함께 전달된 경우 cloudinary에 저장하고 Photo 레코드 생성
     if photo_bytes_list:
-        #uploader는 외부 모듈이라 임포트 해야 함
-        import cloudinary.uploader
-        import io
         for photo_bytes in photo_bytes_list:
-            upload_result = cloudinary.uploader.upload(
+            upload_result = upload_authenticated_photo(
                 io.BytesIO(photo_bytes),
-                folder="cluster/photos"
+                folder="cluster/activity"
             )
-            photo_url = upload_result["secure_url"]
+            photo_url = upload_result["public_id"]
             db.add(Photo(log_id=activity_log.log_id, photo_url=photo_url))
         db.commit()
         db.refresh(activity_log)
@@ -387,6 +408,7 @@ async def _detect_people_for_photo(db: Session, photo_bytes: bytes, current_user
                     "self_embedding": json.dumps(current_user.embedding) if current_user.embedding else "null",
                     "candidates": json.dumps(candidates),
                 },
+                headers={"X-API-KEY": settings.AI_SERVER_SECRET},
             )
         response.raise_for_status()
         result = response.json()

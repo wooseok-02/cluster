@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from schedule.schema import ScheduleCreate, ScheduleRead, ScheduleList, ScheduleUpdate
-from schedule.service import create_schedule, get_schedule, scheList, update_schedule
+from schedule.service import create_schedule, get_schedule, scheList, serialize_schedule, update_schedule
 from config.database import get_db
 from auth.token import get_current_user
 
@@ -27,7 +27,7 @@ def register_schedule(
     return {
         "status": 200,
         "message": "Schedule created successfully",
-        "data": new_schedule
+        "data": serialize_schedule(new_schedule)
     }
 
 
@@ -48,7 +48,7 @@ def load_schedule(
     return {
         "status": 200,
         "message": "Schedule retrieved successfully",
-        "data": schedule
+        "data": serialize_schedule(schedule)
     }
 
 @router.patch("/{schedule_id}", response_model=ScheduleRead)
@@ -69,7 +69,7 @@ def edit_schedule(
     return {
         "status": 200,
         "message": "Schedule updated successfully",
-        "data": updated
+        "data": serialize_schedule(updated)
     }
 
 

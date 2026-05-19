@@ -6,7 +6,7 @@ from config.security import create_access_token, hash_password, verify_password
 from config.config import settings
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
 from fastapi.security import OAuth2PasswordRequestForm
-import cloudinary.uploader
+from utils.cloudinary import upload_authenticated_photo
 import httpx
 import io
 
@@ -57,7 +57,8 @@ async def update_user_photo(db: Session, photo: UploadFile, current_user: User) 
     async with httpx.AsyncClient(timeout=30.0) as client:
         response = await client.post(
             f"{settings.AI_SERVER_URL}/embed",
-            files={"file": ("photo.jpg", photo_bytes, "image/jpeg")}
+            files={"file": ("photo.jpg", photo_bytes, "image/jpeg")},
+            headers={"X-API-KEY": settings.AI_SERVER_SECRET},
         )
     response.raise_for_status()
     embedding: list | None = response.json()["embedding"]
@@ -66,9 +67,9 @@ async def update_user_photo(db: Session, photo: UploadFile, current_user: User) 
     if embedding is None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="얼굴을 인식할 수 없습니다")
 
-    # Cloudinary에 이미지 업로드 후 URL 저장
-    result = cloudinary.uploader.upload(io.BytesIO(photo_bytes), folder="cluster/users")
-    current_user.photo_url = result["secure_url"]
+    # Cloudinary에 authenticated 이미지 업로드 후 public_id 저장
+    result = upload_authenticated_photo(io.BytesIO(photo_bytes), folder="cluster/users")
+    current_user.photo_url = result["public_id"]
     current_user.embedding = embedding
     db.commit()
     db.refresh(current_user)

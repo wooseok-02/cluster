@@ -8,6 +8,24 @@ from auth.model import User
 from schedule.schema import ScheduleCreate, ScheduleUpdate
 from activity.model import ActivityLog, Photo
 from sqlalchemy import extract
+from utils.cloudinary import get_signed_photo_url
+
+
+def serialize_schedule(schedule: Schedule) -> dict:
+    return {
+        "id": schedule.id,
+        "title": schedule.title,
+        "start_time": schedule.start_time,
+        "end_time": schedule.end_time,
+        "memo": schedule.memo,
+        "status": schedule.status,
+        "place": schedule.place,
+        "people": schedule.people,
+        "photos": [
+            {"id": photo.id, "photo_url": get_signed_photo_url(photo.photo_url)}
+            for photo in getattr(schedule, "photos", [])
+        ],
+    }
 
 # 일정 미리 생성 로직
 def create_schedule(db: Session, schedule_data: ScheduleCreate, current_user: User):

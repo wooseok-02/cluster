@@ -4,9 +4,10 @@ from typing import List, Optional
 import json
 
 from activity.schema import ActivityRead, ConfirmRequest, PhotoUploadResponse, PhotoVerifyResponse
-from activity.service import confirm_schedule, get_activity, upload_photos, verify_photo
+from activity.service import confirm_schedule, get_activity, serialize_activity_log, upload_photos, verify_photo
 from config.database import get_db
 from auth.token import get_current_user
+from utils.file_validation import validate_image
 
 router = APIRouter(
     prefix="/activity",
@@ -32,6 +33,8 @@ async def upload_photos_route(
         raise HTTPException(status_code=400, detail="사진을 1장 이상 업로드해주세요")
     if len(photos) > 10:
         raise HTTPException(status_code=400, detail="최대 10장까지 업로드 가능합니다")
+    for photo in photos:
+        await validate_image(photo)
 
     print(f"[API] upload_photos_route 시작 - 사진 수: {len(photos)}장")
     result = await upload_photos(db, photos, current_user)
@@ -76,7 +79,7 @@ async def confirm_schedule_route(
     return {
         "status": 200,
         "message": "일정이 확정되고 활동 기록이 생성되었습니다",
-        "data": activity_log
+        "data": serialize_activity_log(activity_log)
     }
 
 
@@ -114,5 +117,5 @@ def get_activity_route(
     return {
         "status": 200,
         "message": "Activity retrieved successfully",
-        "data": activity_log
+        "data": serialize_activity_log(activity_log)
     }
