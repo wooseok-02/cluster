@@ -7,6 +7,7 @@ import httpx
 from config.config import settings
 from activity.model import ActivityLog
 from schedule.model import Schedule
+from utils.cloudinary import get_signed_photo_url
 from utils.geo import _haversine
 from utils.exif import _extract_info_from_exif
 
@@ -76,25 +77,45 @@ def get_place(db: Session, place_id: int, current_user: User):
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Place not found"
         )
-    log = db.query(ActivityLog).filter(
-        ActivityLog.place_id == place_id
-    ).all()
+    logs = db.query(ActivityLog).filter(
+        ActivityLog.user_id == current_user.id,
+        ActivityLog.place_id == place_id,
+    ).order_by(ActivityLog.date.desc(), ActivityLog.log_id.desc()).all()
 
     # 이 장소에 연결된 Schedule 목록을 한 번만 조회 후 날짜로 매칭
     schedules = db.query(Schedule).filter(
         Schedule.user_id == current_user.id,
         Schedule.place_id == place_id,
     ).all()
-    schedule_by_date = {s.start_time.date(): s.id for s in schedules}
+    schedule_by_date = {s.start_time.date(): s for s in schedules}
 
-    logs_data = [
-        {
-            "log_id": i.log_id,
-            "date": i.date,
-            "schedule_id": schedule_by_date.get(i.date),
-        }
-        for i in log
-    ]
+    companion_map = {}
+    logs_data = []
+    for log in logs:
+        schedule = schedule_by_date.get(log.date)
+        logs_data.append({
+            "log_id": log.log_id,
+            "date": log.date,
+            "schedule_id": schedule.id if schedule else None,
+            "schedule_title": schedule.title if schedule else None,
+        })
+
+        people = list(log.people)
+        if not people and schedule:
+            people = list(schedule.people)
+        for person in people:
+            if person.user_id != current_user.id:
+                continue
+            if person.id not in companion_map:
+                companion_map[person.id] = {
+                    "id": person.id,
+                    "name": person.name,
+                    "photo_url": get_signed_photo_url(person.photo_url),
+                    "status": person.status,
+                    "count": 0,
+                }
+            companion_map[person.id]["count"] += 1
+    companions = sorted(companion_map.values(), key=lambda person: person["count"], reverse=True)
 
     return {
         "id": place.id,
@@ -103,7 +124,8 @@ def get_place(db: Session, place_id: int, current_user: User):
         "latitude": place.latitude,
         "visit_count": place.visit_count,
         "status": place.status,
-        "logs": logs_data
+        "logs": logs_data,
+        "people": companions,
     }
 
 def get_placeList(db: Session, current_user: User, lat: float = None, lon: float = None):

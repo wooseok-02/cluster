@@ -43,6 +43,8 @@ class PersonLog(BaseModel) :
     log_id : int
     date : date
     schedule_id : Optional[int] = None
+    schedule_title : Optional[str] = None
+    place_name : Optional[str] = None
 
 class PersonPlannedSchedule(BaseModel) :
     id : int

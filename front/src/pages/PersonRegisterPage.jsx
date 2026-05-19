@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { registerPerson } from '../api/people'
 
+const DRAFT_KEY = 'scheduleFormDraft'
 const inputClassName =
   'h-10 w-full rounded-[10px] border border-gray-300 bg-white !px-[10px] text-xs leading-4 text-text-main placeholder:text-gray-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/10'
 
@@ -50,7 +51,17 @@ export default function PersonRegisterPage() {
     setError('')
     setLoading(true)
     try {
-      await registerPerson({ ...form, phone: formatPhoneNumber(form.phone), age: Number(form.age), photo: photoFile })
+      const result = await registerPerson({ ...form, phone: formatPhoneNumber(form.phone), age: Number(form.age), photo: photoFile })
+      if (from === 'schedule' && result.data?.id) {
+        const draft = JSON.parse(sessionStorage.getItem(DRAFT_KEY) || '{}')
+        const previousIds = draft.selectedPeopleIds || []
+        sessionStorage.setItem(DRAFT_KEY, JSON.stringify({
+          ...draft,
+          selectedPeopleIds: previousIds.includes(result.data.id)
+            ? previousIds
+            : [...previousIds, result.data.id],
+        }))
+      }
       navigate(from === 'schedule' ? '/schedule/create' : '/people')
     } catch (err) {
       setError(err.response?.data?.detail || '등록에 실패했습니다.')

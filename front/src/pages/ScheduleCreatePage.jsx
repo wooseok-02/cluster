@@ -1,8 +1,16 @@
 // 일정 생성 페이지 — 검색 필터로 People·Place 선택, 등록 후 복귀 시 폼 상태 복원
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { createSchedule } from '../api/schedule'
-import { setPendingFiles, takePendingFiles } from '../lib/pendingPhotos'
+import { confirmSchedule, createSchedule } from '../api/schedule'
+import {
+  clearPendingFiles,
+  clearPendingPhotoUploadGroup,
+  getPendingFiles,
+  getPendingPhotoUploadGroup,
+  removePhotoUploadGroup,
+  setPendingFiles,
+  setPendingPhotoUploadGroup,
+} from '../lib/pendingPhotos'
 import { getPeopleList } from '../api/people'
 import { getPlaceList } from '../api/place'
 
@@ -15,8 +23,9 @@ export default function ScheduleCreatePage() {
   const from = searchParams.get('from')
   const personId = searchParams.get('personId')
   const isFromPersonDetail = from === 'person' && personId
-  // mount 시 한 번만 읽고 저장소 비움 — 다른 경로에서 진입 시 빈 배열
-  const [pendingFiles] = useState(() => takePendingFiles())
+  const [pendingFiles] = useState(() => getPendingFiles())
+  const [pendingPhotoGroup] = useState(() => getPendingPhotoUploadGroup())
+  const isFromPhotoUpload = from === 'photo-upload' || Boolean(pendingPhotoGroup)
 
   const [form, setForm] = useState({ title: '', date: initialDate, start_time: '', end_time: '', memo: '' })
   const [selectedPeopleIds, setSelectedPeopleIds] = useState([])
@@ -37,9 +46,9 @@ export default function ScheduleCreatePage() {
     const draft = sessionStorage.getItem(DRAFT_KEY)
     if (draft) {
       const { form: f, selectedPeopleIds: pIds, selectedPlaceId: plId } = JSON.parse(draft)
-      setForm(f)
-      setSelectedPeopleIds(pIds)
-      setSelectedPlaceId(plId)
+      if (f) setForm(f)
+      setSelectedPeopleIds(pIds || [])
+      setSelectedPlaceId(plId ?? null)
       sessionStorage.removeItem(DRAFT_KEY)
     }
   }, [])
@@ -60,13 +69,20 @@ export default function ScheduleCreatePage() {
     sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ form, selectedPeopleIds, selectedPlaceId }))
   }
 
+  const preservePendingPhotoState = () => {
+    if (pendingFiles.length > 0) setPendingFiles(pendingFiles)
+    if (pendingPhotoGroup) setPendingPhotoUploadGroup(pendingPhotoGroup)
+  }
+
   const handleAddPerson = () => {
     saveDraft()
+    preservePendingPhotoState()
     navigate('/people/register?from=schedule')
   }
 
   const handleAddPlace = () => {
     saveDraft()
+    preservePendingPhotoState()
     navigate('/place/register?from=schedule')
   }
 
@@ -101,8 +117,19 @@ export default function ScheduleCreatePage() {
         people_ids: selectedPeopleIds,
       })
       if (pendingFiles.length > 0) {
-        setPendingFiles(pendingFiles)
-        navigate(`/schedule/${result.data.id}`)
+        await confirmSchedule(result.data.id, form.memo, pendingFiles, pendingPhotoGroup?.matchedPeopleIds || [])
+        clearPendingFiles()
+        clearPendingPhotoUploadGroup()
+
+        const uploadSession = pendingPhotoGroup
+          ? removePhotoUploadGroup(pendingPhotoGroup.groupIndex)
+          : null
+        if (uploadSession?.results?.length > 0) {
+          navigate('/photo/upload')
+          return
+        }
+
+        navigate('/calendar')
         return
       }
       navigate('/calendar')
@@ -127,7 +154,7 @@ export default function ScheduleCreatePage() {
   const matchingPlaces = showPlaceMatches && trimmedPlaceSearch
     ? places.filter((pl) => pl.name.toLowerCase().startsWith(trimmedPlaceSearch))
     : []
-  const backPath = isFromPersonDetail ? `/people/${personId}` : '/calendar'
+  const backPath = isFromPersonDetail ? `/people/${personId}` : isFromPhotoUpload ? '/photo/upload' : '/calendar'
 
   return (
     <div className="min-h-screen w-full max-w-[448px] mx-auto bg-white !pb-10">

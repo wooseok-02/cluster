@@ -82,16 +82,46 @@ def get_people(db: Session, people_id , current_user : User):
         People.user_id == current_user.id,
         People.id == people_id
     ).first()
-    log = db.query(ActivityLog).join(
+    if not people_info:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="People not found"
+        )
+
+    logs = db.query(ActivityLog).join(
         log_people, ActivityLog.log_id == log_people.c.log_id).filter(
+            ActivityLog.user_id == current_user.id,
             log_people.c.people_id == people_id
-        ).all()
+        ).order_by(ActivityLog.date.desc(), ActivityLog.log_id.desc()).all()
 
     # ActivityLog와 날짜가 일치하는 Schedule 매칭
     schedules = db.query(Schedule).filter(
         Schedule.user_id == current_user.id,
     ).all()
-    schedule_by_date = {s.start_time.date(): s.id for s in schedules}
+    schedule_by_key = {
+        (schedule.start_time.date(), schedule.place_id): schedule
+        for schedule in schedules
+    }
+    schedule_by_date = {schedule.start_time.date(): schedule for schedule in schedules}
+    def _schedule_for_log(log: ActivityLog):
+        return schedule_by_key.get((log.date, log.place_id)) or schedule_by_date.get(log.date)
+
+    log_by_id = {log.log_id: log for log in logs}
+    completed_schedules = [
+        schedule
+        for schedule in schedules
+        if schedule.status == "Completed" and any(person.id == people_id for person in schedule.people)
+    ]
+    for schedule in completed_schedules:
+        fallback_log = db.query(ActivityLog).filter(
+            ActivityLog.user_id == current_user.id,
+            ActivityLog.date == schedule.start_time.date(),
+            ActivityLog.place_id == schedule.place_id,
+        ).first()
+        if fallback_log and fallback_log.log_id not in log_by_id:
+            log_by_id[fallback_log.log_id] = fallback_log
+    logs = sorted(log_by_id.values(), key=lambda log: (log.date, log.log_id), reverse=True)
+
     planned_schedules = db.query(Schedule).join(Schedule.people).filter(
         Schedule.user_id == current_user.id,
         People.id == people_id,
@@ -108,8 +138,14 @@ def get_people(db: Session, people_id , current_user : User):
         "count" : people_info.count,
         "status" : people_info.status,
         "logs" : [
-            {"log_id": i.log_id, "date": i.date, "schedule_id": schedule_by_date.get(i.date)}
-            for i in log
+            {
+                "log_id": log.log_id,
+                "date": log.date,
+                "schedule_id": _schedule_for_log(log).id if _schedule_for_log(log) else None,
+                "schedule_title": _schedule_for_log(log).title if _schedule_for_log(log) else None,
+                "place_name": log.place.name if log.place else None,
+            }
+            for log in logs
         ],
         "planned_schedules" : [
             {

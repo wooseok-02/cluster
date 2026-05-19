@@ -3,6 +3,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { GoogleMap, Marker, useJsApiLoader } from '@react-google-maps/api'
 import { searchKakaoPlace, registerPlace } from '../api/place'
 
+const DRAFT_KEY = 'scheduleFormDraft'
+
 export default function PlaceRegisterPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -45,7 +47,14 @@ export default function PlaceRegisterPage() {
     setSaveLoading(true)
     setError('')
     try {
-      await registerPlace(selectedPlace)
+      const result = await registerPlace(selectedPlace)
+      if (from === 'schedule' && result.data?.id) {
+        const draft = JSON.parse(sessionStorage.getItem(DRAFT_KEY) || '{}')
+        sessionStorage.setItem(DRAFT_KEY, JSON.stringify({
+          ...draft,
+          selectedPlaceId: result.data.id,
+        }))
+      }
       navigate(from === 'schedule' ? '/schedule/create' : '/map')
     } catch (err) {
       setError(err.response?.data?.detail || '저장에 실패했습니다.')

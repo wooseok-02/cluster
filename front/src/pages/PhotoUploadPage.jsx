@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { uploadPhotos } from '../api/activity'
-import { setPendingFiles } from '../lib/pendingPhotos'
+import { getPhotoUploadSession, setPendingFiles, setPendingPhotoUploadGroup, setPhotoUploadSession } from '../lib/pendingPhotos'
 
 const DRAFT_KEY = 'scheduleFormDraft'
 const STATUS_META = {
@@ -120,11 +120,12 @@ function PlaceIcon() {
 
 export default function PhotoUploadPage() {
   const navigate = useNavigate()
+  const savedSession = getPhotoUploadSession()
 
-  const [files, setFiles] = useState([])
+  const [files, setFiles] = useState(savedSession?.files || [])
   const [previewUrls, setPreviewUrls] = useState([])
-  const [results, setResults] = useState(null)
-  const [skippedCount, setSkippedCount] = useState(0)
+  const [results, setResults] = useState(savedSession?.results || null)
+  const [skippedCount, setSkippedCount] = useState(savedSession?.skippedCount || 0)
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState('')
 
@@ -143,6 +144,8 @@ export default function PhotoUploadPage() {
     setFiles(selected)
     setUploadError('')
     setResults(null)
+    setSkippedCount(0)
+    setPhotoUploadSession(null)
   }
 
   const handleUpload = async () => {
@@ -156,6 +159,7 @@ export default function PhotoUploadPage() {
       const data = await uploadPhotos(files)
       setResults(data.data)
       setSkippedCount(data.skipped_count)
+      setPhotoUploadSession({ files, results: data.data, skippedCount: data.skipped_count })
     } catch (err) {
       setUploadError(err.response?.data?.detail || '업로드에 실패했습니다.')
     } finally {
@@ -166,7 +170,12 @@ export default function PhotoUploadPage() {
   const navigateToScheduleForm = (group, schedule = {}) => {
     sessionStorage.setItem(DRAFT_KEY, JSON.stringify(getPrefillDraft(group, schedule)))
     setPendingFiles(getGroupFiles(group, files))
-    navigate('/schedule/create')
+    setPendingPhotoUploadGroup({
+      groupIndex: group.group_index,
+      matchedPeopleIds: group.matched_people_ids || [],
+    })
+    setPhotoUploadSession({ files, results, skippedCount })
+    navigate('/schedule/create?from=photo-upload')
   }
 
   const handleFileSelectClick = () => {
