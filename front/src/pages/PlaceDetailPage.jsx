@@ -23,6 +23,10 @@ function getCompanionCount(person) {
   return Number(person.count ?? person.visit_count ?? person.meeting_count ?? 0) || 0
 }
 
+function getCompanionId(person) {
+  return person.id ?? person.people_id ?? person.person_id
+}
+
 export default function PlaceDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -45,6 +49,11 @@ export default function PlaceDetailPage() {
   if (error) return <p className="!p-4 text-red-500">{error}</p>
 
   const companions = getCompanions(place)
+  const navigateToCompanion = (person) => {
+    const personId = getCompanionId(person)
+    if (!personId) return
+    navigate(`/people/${personId}`)
+  }
 
   return (
     <div className="mx-auto min-h-screen w-full max-w-[448px] bg-white !pb-[48px]">
@@ -142,34 +151,38 @@ export default function PlaceDetailPage() {
         ) : (
           <div className="flex flex-col gap-3">
             {companions.slice(0, 1).map((person) => (
-              <button
-                key={person.id}
-                type="button"
-                onClick={() => navigate(`/people/${person.id}`)}
+              <div
+                key={getCompanionId(person) || person.name}
                 className="flex w-full items-center gap-5 rounded-[15px] border border-gray-200 bg-white !p-[15px] text-left shadow-[0_3px_3.5px_rgba(210,210,210,0.3)]"
               >
-                <span className="flex h-[70px] w-[70px] shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-light text-xl font-bold text-primary">
-                  {person.photo_url ? (
-                    <img src={person.photo_url} alt={person.name} className="h-full w-full object-cover" />
-                  ) : (
-                    person.name?.[0] || '?'
-                  )}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="flex items-center gap-[5px]">
-                    <span className="truncate text-lg font-bold leading-4 text-black">{person.name}</span>
-                    <span className="rounded-full bg-primary-light !px-[10px] text-xs font-medium leading-4 text-primary">
-                      {getStatusLabel(person.status)}
+                <button
+                  type="button"
+                  onClick={() => navigateToCompanion(person)}
+                  className="flex min-w-0 flex-1 items-center gap-5 text-left"
+                >
+                  <span className="flex h-[70px] w-[70px] shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-light text-xl font-bold text-primary">
+                    {person.photo_url ? (
+                      <img src={person.photo_url} alt={person.name} className="h-full w-full object-cover" />
+                    ) : (
+                      person.name?.[0] || '?'
+                    )}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center gap-[5px]">
+                      <span className="truncate text-lg font-bold leading-4 text-black">{person.name}</span>
+                      <span className="rounded-full bg-primary-light !px-[10px] text-xs font-medium leading-4 text-primary">
+                        {getStatusLabel(person.status)}
+                      </span>
+                    </span>
+                    <span className="!mt-[10px] block truncate text-sm leading-4 text-gray-500">
+                      같이 {getCompanionCount(person)}번 방문했어요
                     </span>
                   </span>
-                  <span className="!mt-[10px] block truncate text-sm leading-4 text-gray-500">
-                    같이 {getCompanionCount(person)}번 방문했어요
-                  </span>
-                </span>
+                </button>
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="shrink-0 text-gray-500" aria-hidden="true">
                   <path d="M9 6L15 12L9 18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
-              </button>
+              </div>
             ))}
           </div>
         )}
