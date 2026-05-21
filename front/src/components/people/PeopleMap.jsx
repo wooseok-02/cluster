@@ -9,7 +9,7 @@ const MAP_CENTER = MAP_SIZE / 2
 const FIGMA_CENTER = 450
 const POSITION_SCALE = 1.24
 const MIN_ZOOM = 0.55
-const MAX_ZOOM = 1.8
+const MAX_ZOOM = 4.0
 const ZOOM_STEP = 0.15
 const NODE_LONG_PRESS_MS = 450
 const NODE_CLICK_DELAY_MS = 220
@@ -754,8 +754,9 @@ export default function PeopleMap({
       >
         <div
           className="relative select-none origin-top-left"
-            style={{ width: MAP_SIZE, height: MAP_SIZE }}
           style={{
+            width: MAP_SIZE,
+            height: MAP_SIZE,
             transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})`,
             WebkitUserSelect: 'none',
             WebkitTouchCallout: 'none',
