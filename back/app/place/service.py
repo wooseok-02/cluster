@@ -82,17 +82,18 @@ def get_place(db: Session, place_id: int, current_user: User):
         ActivityLog.place_id == place_id,
     ).order_by(ActivityLog.date.desc(), ActivityLog.log_id.desc()).all()
 
-    # 이 장소에 연결된 Schedule 목록을 한 번만 조회 후 날짜로 매칭
+    # 이 장소에 연결된 Schedule 목록을 한 번만 조회 후 ActivityLog.schedule_id 우선 매칭
     schedules = db.query(Schedule).filter(
         Schedule.user_id == current_user.id,
         Schedule.place_id == place_id,
     ).all()
-    schedule_by_date = {s.start_time.date(): s for s in schedules}
+    schedule_by_id = {s.id: s for s in schedules}
+    schedule_by_key = {(s.start_time.date(), s.start_time.time()): s for s in schedules}
 
     companion_map = {}
     logs_data = []
     for log in logs:
-        schedule = schedule_by_date.get(log.date)
+        schedule = schedule_by_id.get(log.schedule_id) or schedule_by_key.get((log.date, log.time))
         logs_data.append({
             "log_id": log.log_id,
             "date": log.date,

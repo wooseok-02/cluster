@@ -16,12 +16,14 @@ class ActivityLog(Base):
 
     log_id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("USER.id"))
+    schedule_id = Column(Integer, ForeignKey("SCHEDULE.id"), nullable=True)
     place_id = Column(Integer, ForeignKey("PLACE.id"), nullable=True)
     date = Column(Date)
     time = Column(Time)
     memo = Column(String)
 
     # relationship은 ()안의 테이블 자체에 대한 연결을 할 수 있도록 함. ActivityLog.place
+    schedule = relationship("Schedule")
     place = relationship("Place")
     people = relationship("People", secondary=log_people)
     #back_populates는 상대 테이블의 정보로 자동으로 업데이트해주는 양방향 업데이트 기능.

@@ -27,6 +27,23 @@ def serialize_schedule(schedule: Schedule) -> dict:
         ],
     }
 
+
+def _activity_for_schedule(db: Session, schedule: Schedule, current_user: User):
+    activity = db.query(ActivityLog).filter(
+        ActivityLog.user_id == current_user.id,
+        ActivityLog.schedule_id == schedule.id,
+    ).first()
+    if activity:
+        return activity
+
+    return db.query(ActivityLog).filter(
+        ActivityLog.user_id == current_user.id,
+        ActivityLog.date == schedule.start_time.date(),
+        ActivityLog.time == schedule.start_time.time(),
+        ActivityLog.place_id == schedule.place_id,
+    ).first()
+
+
 # 일정 미리 생성 로직
 def create_schedule(db: Session, schedule_data: ScheduleCreate, current_user: User):
     # date 기준으로 status 자동 결정
@@ -106,11 +123,7 @@ def get_schedule(db: Session, schedule_id: int, current_user: User):
     # Completed 일정이면 같은 날짜+장소의 ActivityLog에서 사진 가져오기
     photos = []
     if schedule.status == "Completed":
-        activity = db.query(ActivityLog).filter(
-            ActivityLog.user_id == current_user.id,
-            ActivityLog.date == schedule.start_time.date(),
-            ActivityLog.place_id == schedule.place_id,
-        ).first()
+        activity = _activity_for_schedule(db, schedule, current_user)
         if activity:
             photos = db.query(Photo).filter(Photo.log_id == activity.log_id).all()
 
@@ -194,11 +207,7 @@ def scheList(db : Session, year, month, current_user) :
     for schedule in schedule_list:
         photos = []
         if schedule.status == "Completed":
-            activity = db.query(ActivityLog).filter(
-                ActivityLog.user_id == current_user.id,
-                ActivityLog.date == schedule.start_time.date(),
-                ActivityLog.place_id == schedule.place_id,
-            ).first()
+            activity = _activity_for_schedule(db, schedule, current_user)
             if activity:
                 photos = db.query(Photo).filter(Photo.log_id == activity.log_id).all()
 

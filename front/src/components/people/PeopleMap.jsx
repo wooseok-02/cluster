@@ -90,14 +90,24 @@ function getConnectionKey(fromId, toId) {
 }
 
 function getConnectionPath(from, to) {
-  const centerPull = { x: MAP_CENTER, y: MAP_CENTER }
+  const dx = to.x - from.x
+  const dy = to.y - from.y
+  const distance = Math.hypot(dx, dy) || 1
+  const normal = { x: -dy / distance, y: dx / distance }
+  const midpoint = {
+    x: (from.x + to.x) / 2,
+    y: (from.y + to.y) / 2,
+  }
+  const centerBias = midpoint.x < MAP_CENTER ? -1 : 1
+  const curve = Math.min(82, Math.max(18, distance * 0.12)) * centerBias
+  const handleLength = distance * 0.42
   const controlA = {
-    x: from.x + (centerPull.x - from.x) * 0.28,
-    y: from.y + (centerPull.y - from.y) * 0.28,
+    x: from.x + dx / distance * handleLength + normal.x * curve,
+    y: from.y + dy / distance * handleLength + normal.y * curve,
   }
   const controlB = {
-    x: to.x + (centerPull.x - to.x) * 0.28,
-    y: to.y + (centerPull.y - to.y) * 0.28,
+    x: to.x - dx / distance * handleLength + normal.x * curve,
+    y: to.y - dy / distance * handleLength + normal.y * curve,
   }
 
   return `M ${from.x} ${from.y} C ${controlA.x} ${controlA.y}, ${controlB.x} ${controlB.y}, ${to.x} ${to.y}`

@@ -36,6 +36,51 @@ try:
 except Exception as e:
     print(f"[migration] PEOPLE 컬럼 추가 건너뜀: {e}")
 
+# 마이그레이션 — ACTIVITY_LOG에 schedule_id 컬럼 추가 (없을 때만)
+try:
+    with engine.connect() as conn:
+        from sqlalchemy import text, inspect
+        inspector = inspect(engine)
+        try:
+            existing_cols = [c["name"] for c in inspector.get_columns("ACTIVITY_LOG")]
+        except Exception:
+            existing_cols = [c["name"] for c in inspector.get_columns("activity_log")]
+        if "schedule_id" not in existing_cols:
+            conn.execute(text('ALTER TABLE "ACTIVITY_LOG" ADD COLUMN schedule_id INTEGER'))
+            conn.commit()
+        if engine.dialect.name == "postgresql":
+            conn.execute(text("""
+                UPDATE "ACTIVITY_LOG" AS log
+                SET schedule_id = schedule.id
+                FROM "SCHEDULE" AS schedule
+                WHERE log.schedule_id IS NULL
+                  AND schedule.user_id = log.user_id
+                  AND schedule.place_id IS NOT DISTINCT FROM log.place_id
+                  AND schedule.start_time::date = log.date
+                  AND schedule.start_time::time = log.time
+            """))
+            conn.commit()
+        elif engine.dialect.name == "sqlite":
+            conn.execute(text("""
+                UPDATE "ACTIVITY_LOG"
+                SET schedule_id = (
+                    SELECT "SCHEDULE".id
+                    FROM "SCHEDULE"
+                    WHERE "SCHEDULE".user_id = "ACTIVITY_LOG".user_id
+                      AND (
+                          "SCHEDULE".place_id = "ACTIVITY_LOG".place_id
+                          OR ("SCHEDULE".place_id IS NULL AND "ACTIVITY_LOG".place_id IS NULL)
+                      )
+                      AND date("SCHEDULE".start_time) = "ACTIVITY_LOG".date
+                      AND time("SCHEDULE".start_time) = "ACTIVITY_LOG".time
+                    LIMIT 1
+                )
+                WHERE schedule_id IS NULL
+            """))
+            conn.commit()
+except Exception as e:
+    print(f"[migration] ACTIVITY_LOG schedule_id 마이그레이션 건너뜀: {e}")
+
 origins = [
     "http://localhost:5173",
     "https://cluster-one-beta.vercel.app",

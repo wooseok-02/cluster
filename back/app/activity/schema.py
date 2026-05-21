@@ -33,6 +33,7 @@ class PhotoInfo(BaseModel):
 # ── 응답 data 스키마 ─────────────────────────────────────────
 class ActivityData(BaseModel):
     log_id: int
+    schedule_id: Optional[int] = None
     date: Date
     time: Time
     memo: str

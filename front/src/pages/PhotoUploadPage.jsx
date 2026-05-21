@@ -59,6 +59,7 @@ function getPrefillDraft(group, schedule = {}) {
   const placeId = schedule.place_id || schedule.placeId || schedule.place?.id || group.place_id || group.place?.id || null
 
   return {
+    scheduleId: schedule.id || schedule.schedule_id || group.schedule_id || null,
     form: {
       title: schedule.title || group.schedule_title || '',
       date: schedule.date || group.date || '',

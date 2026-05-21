@@ -1,7 +1,7 @@
 // 일정 생성 페이지 — 검색 필터로 People·Place 선택, 등록 후 복귀 시 폼 상태 복원
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { confirmSchedule, createSchedule } from '../api/schedule'
+import { confirmSchedule, createSchedule, updateSchedule } from '../api/schedule'
 import {
   clearPendingFiles,
   clearPendingPhotoUploadGroup,
@@ -28,6 +28,7 @@ export default function ScheduleCreatePage() {
   const isFromPhotoUpload = from === 'photo-upload' || Boolean(pendingPhotoGroup)
 
   const [form, setForm] = useState({ title: '', date: initialDate, start_time: '', end_time: '', memo: '' })
+  const [existingScheduleId, setExistingScheduleId] = useState(null)
   const [selectedPeopleIds, setSelectedPeopleIds] = useState([])
   const [selectedPlaceId, setSelectedPlaceId] = useState(null)
 
@@ -45,7 +46,8 @@ export default function ScheduleCreatePage() {
   useEffect(() => {
     const draft = sessionStorage.getItem(DRAFT_KEY)
     if (draft) {
-      const { form: f, selectedPeopleIds: pIds, selectedPlaceId: plId } = JSON.parse(draft)
+      const { scheduleId, form: f, selectedPeopleIds: pIds, selectedPlaceId: plId } = JSON.parse(draft)
+      setExistingScheduleId(scheduleId || null)
       if (f) setForm(f)
       setSelectedPeopleIds(pIds || [])
       setSelectedPlaceId(plId ?? null)
@@ -107,7 +109,7 @@ export default function ScheduleCreatePage() {
     setError('')
     setLoading(true)
     try {
-      const result = await createSchedule({
+      const schedulePayload = {
         title: form.title,
         date: form.date,
         start_time: form.start_time + ':00',
@@ -115,6 +117,31 @@ export default function ScheduleCreatePage() {
         memo: form.memo,
         place_id: selectedPlaceId,
         people_ids: selectedPeopleIds,
+      }
+
+      if (pendingFiles.length > 0 && existingScheduleId) {
+        await updateSchedule(existingScheduleId, {
+          ...schedulePayload,
+          place_id: selectedPlaceId ?? 0,
+        })
+        await confirmSchedule(existingScheduleId, form.memo, pendingFiles, pendingPhotoGroup?.matchedPeopleIds || [])
+        clearPendingFiles()
+        clearPendingPhotoUploadGroup()
+
+        const uploadSession = pendingPhotoGroup
+          ? removePhotoUploadGroup(pendingPhotoGroup.groupIndex)
+          : null
+        if (uploadSession?.results?.length > 0) {
+          navigate('/photo/upload')
+          return
+        }
+
+        navigate('/calendar')
+        return
+      }
+
+      const result = await createSchedule({
+        ...schedulePayload,
       })
       if (pendingFiles.length > 0) {
         await confirmSchedule(result.data.id, form.memo, pendingFiles, pendingPhotoGroup?.matchedPeopleIds || [])

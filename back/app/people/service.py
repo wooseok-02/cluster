@@ -99,17 +99,17 @@ def get_people(db: Session, people_id , current_user : User):
             log_people.c.people_id == people_id
         ).order_by(ActivityLog.date.desc(), ActivityLog.log_id.desc()).all()
 
-    # ActivityLog와 날짜가 일치하는 Schedule 매칭
+    # ActivityLog.schedule_id 우선, 기존 로그는 날짜/장소 fallback으로 Schedule 매칭
     schedules = db.query(Schedule).filter(
         Schedule.user_id == current_user.id,
     ).all()
+    schedule_by_id = {schedule.id: schedule for schedule in schedules}
     schedule_by_key = {
         (schedule.start_time.date(), schedule.place_id): schedule
         for schedule in schedules
     }
-    schedule_by_date = {schedule.start_time.date(): schedule for schedule in schedules}
     def _schedule_for_log(log: ActivityLog):
-        return schedule_by_key.get((log.date, log.place_id)) or schedule_by_date.get(log.date)
+        return schedule_by_id.get(log.schedule_id) or schedule_by_key.get((log.date, log.place_id))
 
     log_by_id = {log.log_id: log for log in logs}
     completed_schedules = [
@@ -120,9 +120,15 @@ def get_people(db: Session, people_id , current_user : User):
     for schedule in completed_schedules:
         fallback_log = db.query(ActivityLog).filter(
             ActivityLog.user_id == current_user.id,
-            ActivityLog.date == schedule.start_time.date(),
-            ActivityLog.place_id == schedule.place_id,
+            ActivityLog.schedule_id == schedule.id,
         ).first()
+        if not fallback_log:
+            fallback_log = db.query(ActivityLog).filter(
+                ActivityLog.user_id == current_user.id,
+                ActivityLog.date == schedule.start_time.date(),
+                ActivityLog.time == schedule.start_time.time(),
+                ActivityLog.place_id == schedule.place_id,
+            ).first()
         if fallback_log and fallback_log.log_id not in log_by_id:
             log_by_id[fallback_log.log_id] = fallback_log
     logs = sorted(log_by_id.values(), key=lambda log: (log.date, log.log_id), reverse=True)

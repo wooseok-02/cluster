@@ -26,6 +26,7 @@ from utils.cloudinary import get_signed_photo_url, upload_authenticated_photo
 def serialize_activity_log(activity_log: ActivityLog) -> dict:
     return {
         "log_id": activity_log.log_id,
+        "schedule_id": activity_log.schedule_id,
         "date": activity_log.date,
         "time": activity_log.time,
         "memo": activity_log.memo,
@@ -372,6 +373,14 @@ def confirm_schedule(
             detail="Schedule not found"
         )
 
+    if schedule.status == "Completed":
+        existing_activity = db.query(ActivityLog).filter(
+            ActivityLog.user_id == current_user.id,
+            ActivityLog.schedule_id == schedule.id,
+        ).first()
+        if existing_activity:
+            return existing_activity
+
     #미래 일정일 경우 임의 complete 막기
     if schedule.start_time.date() > date.today():
         raise HTTPException(
@@ -399,6 +408,7 @@ def confirm_schedule(
 
     activity_log = ActivityLog(
         user_id=current_user.id,
+        schedule_id=schedule.id,
         place_id=final_place_id,
         date=activity_date,
         time=schedule.start_time.time(),
