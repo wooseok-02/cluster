@@ -28,6 +28,11 @@ export const getMe = async () => {
   return response.data
 }
 
+export const logout = async () => {
+  const response = await axiosInstance.post('/auth/logout')
+  return response.data
+}
+
 export const updateMyPhoto = async (photoFile) => {
   const formData = new FormData()
   formData.append('photo', photoFile)

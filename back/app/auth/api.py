@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
 from sqlalchemy.orm import Session
-from auth.schema import UserCreate, UserRead, UserLogin, UserLoginResponse, UserMeResponse, UserPhotoResponse
+from auth.schema import UserCreate, UserRead, UserLogin, UserLoginResponse, UserMeResponse, UserLogoutResponse, UserPhotoResponse
 from auth.service import register_user, login_user, update_user_photo
 from config.database import get_db
 from auth.model import User
@@ -73,6 +73,19 @@ def get_me(current_user: User = Depends(get_current_user)):
         "age": current_user.age,
         "gender": current_user.gender,
         "photo_url": get_signed_photo_url(current_user.photo_url),
+    }
+
+
+@router.post("/logout", response_model=UserLogoutResponse)
+def logout(current_user: User = Depends(get_current_user)):
+    """
+    현재 액세스 토큰을 사용하는 로그아웃 요청을 처리한다.
+
+    JWT는 서버에 세션을 저장하지 않으므로 실제 토큰 폐기는 클라이언트에서 수행한다.
+    """
+    return {
+        "status": 200,
+        "message": "Logout successful",
     }
 
 

@@ -9,11 +9,12 @@ import BottomTabBar from '../components/BottomTabBar'
 
 export default function PeoplePage() {
   const navigate = useNavigate()
-  const { user, updateUserPhoto } = useAuth()
+  const { user, updateUserPhoto, logoutAction } = useAuth()
   const [people, setPeople] = useState([])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
+  const [loggingOut, setLoggingOut] = useState(false)
   const [myPhotoUrl, setMyPhotoUrl] = useState(user?.photo_url ?? null)
   const fileInputRef = useRef(null)
 
@@ -44,12 +45,27 @@ export default function PeoplePage() {
     }
   }
 
+  const handleLogout = async () => {
+    setLoggingOut(true)
+    await logoutAction()
+    setLoggingOut(false)
+    navigate('/', { replace: true })
+  }
+
   if (loading) return <p className="!p-4">불러오는 중...</p>
 
   return (
     <div className="relative flex h-screen flex-col overflow-hidden bg-white !pb-[85px]">
-      <header className="relative z-20 shrink-0 bg-white !px-[30px] !pt-5 !pb-[14px]">
+      <header className="relative z-20 flex shrink-0 items-center justify-between bg-white !px-[30px] !pt-5 !pb-[14px]">
         <h1 className="text-3xl font-bold leading-none text-text-main">cluster</h1>
+        <button
+          type="button"
+          onClick={handleLogout}
+          disabled={loggingOut}
+          className="flex h-9 items-center justify-center rounded-full border border-gray-border bg-white !px-4 text-sm font-semibold text-text-sub transition-colors hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {loggingOut ? '처리 중' : '로그아웃'}
+        </button>
       </header>
 
       {error && <p className="relative z-20 !px-[30px] text-sm text-red-500">{error}</p>}

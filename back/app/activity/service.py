@@ -37,11 +37,67 @@ def serialize_activity_log(activity_log: ActivityLog) -> dict:
         ],
     }
 
+def _is_valid_embedding(embedding) -> bool:
+    return (
+        isinstance(embedding, list)
+        and len(embedding) > 0
+        and all(isinstance(value, (int, float)) for value in embedding)
+    )
+
+
+async def _get_people_candidates(db: Session, current_user: User) -> list[dict]:
+    people_list = db.query(PeopleModel).filter(
+        PeopleModel.user_id == current_user.id,
+    ).all()
+    candidates = []
+    changed = False
+
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        for person in people_list:
+            if _is_valid_embedding(person.embedding):
+                candidates.append({"people_id": person.id, "embedding": person.embedding})
+                continue
+
+            if not person.photo_url:
+                continue
+
+            try:
+                signed_url = get_signed_photo_url(person.photo_url)
+                photo_response = await client.get(signed_url)
+                photo_response.raise_for_status()
+                embed_response = await client.post(
+                    f"{settings.AI_SERVER_URL}/embed",
+                    files={"file": ("photo.jpg", photo_response.content, "image/jpeg")},
+                    headers={"X-API-KEY": settings.AI_SERVER_SECRET},
+                )
+                embed_response.raise_for_status()
+                embedding = embed_response.json().get("embedding")
+            except Exception as e:
+                print(f"[people_candidates] People {person.id} embedding 보정 실패: {e}")
+                continue
+
+            if not _is_valid_embedding(embedding):
+                print(f"[people_candidates] People {person.id} embedding 보정 결과 없음")
+                continue
+
+            person.embedding = embedding
+            changed = True
+            candidates.append({"people_id": person.id, "embedding": embedding})
+
+    if changed:
+        db.commit()
+
+    return candidates
+
 
 # ── 사진 그룹화 ───────────────────────────────────────────────
 # 그룹화된 사진 리스트에서 하나씩 꺼냄
 def _group_photos(photo_data_list: list[dict]) -> list[list[dict]]:
     """같은 날짜 + GPS 반경 200m 이내 사진을 같은 그룹으로 묶음"""
+    # GPS 클러스터링 연구(Raturi & Awan, 2024; Zheng et al., 2009)에서 권장하는 stay point 기준
+    DISTANCE_THRESHOLD_M = 200   # 같은 장소로 판단할 최대 거리 (미터) — 도보 2~3분 반경
+    TIME_THRESHOLD_MIN = 60      # 같은 방문으로 판단할 최대 시각 차이 (분) — 짧은 이탈 후 복귀는 동일 방문으로 처리
+
     groups = []
     for photo in photo_data_list:
         placed = False
@@ -52,7 +108,15 @@ def _group_photos(photo_data_list: list[dict]) -> list[list[dict]]:
                     photo["latitude"], photo["longitude"],
                     rep["latitude"], rep["longitude"]
                 )
-                if dist <= 200:
+                # Stay Point 기반 장소 탐지 방식 적용
+                # 거리만으로 판단하면 다른 시간대 같은 장소 방문이 하나로 묶이는 문제 발생
+                # 시각 차이 조건을 추가해 동일한 방문인지 여부를 더 정확하게 판단한다
+                time_diff = photo["datetime"] - rep["datetime"]
+                same_visit = (
+                    dist <= DISTANCE_THRESHOLD_M
+                    and abs(time_diff.total_seconds()) / 60 <= TIME_THRESHOLD_MIN
+                )
+                if same_visit:
                     group.append(photo)
                     placed = True
                     break
@@ -136,15 +200,8 @@ async def upload_photos(db: Session, photos: list, current_user: User) -> dict:
     """EXIF 추출 → ai_server /detect 1회 → 그룹화 → 일정 매칭 결과 반환 (DB 저장 없음)"""
     import json
 
-    # DB People 쿼리를 백그라운드 태스크로 시작 (EXIF 추출과 병렬 실행)
-    def _query_candidates():
-        people_list = db.query(PeopleModel).filter(
-            PeopleModel.user_id == current_user.id,
-            PeopleModel.embedding.isnot(None),
-        ).all()
-        return [{"people_id": p.id, "embedding": p.embedding} for p in people_list]
-
-    candidates_task = asyncio.create_task(asyncio.to_thread(_query_candidates))
+    # DB People 후보를 백그라운드 태스크로 시작 (EXIF 추출과 병렬 실행)
+    candidates_task = asyncio.create_task(_get_people_candidates(db, current_user))
 
     # 사진업로드 파이프라인 1번: 사진 bytes 읽기 및 EXIF 추출
     # — photo_index로 각 사진을 추적, EXIF 없는 사진은 datetime/위치를 None으로 보관
@@ -394,11 +451,7 @@ def confirm_schedule(
 
 
 async def _detect_people_for_photo(db: Session, photo_bytes: bytes, current_user: User) -> dict:
-    people_list = db.query(PeopleModel).filter(
-        PeopleModel.user_id == current_user.id,
-        PeopleModel.embedding.isnot(None),
-    ).all()
-    candidates = [{"people_id": p.id, "embedding": p.embedding} for p in people_list]
+    candidates = await _get_people_candidates(db, current_user)
     try:
         async with httpx.AsyncClient(timeout=60.0) as client:
             response = await client.post(

@@ -51,6 +51,11 @@ async def create_people(
             )
         response.raise_for_status()
         embedding = response.json()["embedding"]
+        if embedding is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="얼굴을 인식하지 못했습니다. 얼굴이 잘 보이는 다른 사진으로 다시 등록해주세요."
+            )
 
         #cloudinary IO 자체가 비동기이기 때문에, 별도 스레드 풀에 던진다.
         loop = asyncio.get_running_loop()
@@ -177,6 +182,11 @@ async def update_person_photo(db: Session, people_id: int, photo: UploadFile, cu
         )
     response.raise_for_status()
     embedding = response.json()["embedding"]
+    if embedding is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="얼굴을 인식하지 못했습니다. 얼굴이 잘 보이는 다른 사진으로 다시 등록해주세요."
+        )
 
     result = upload_authenticated_photo(io.BytesIO(photo_bytes), folder="cluster/people")
     person.photo_url = result["public_id"]

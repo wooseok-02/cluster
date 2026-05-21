@@ -1,6 +1,6 @@
 // 로그인 유저 정보와 토큰을 앱 전체에서 공유하는 전역 상태
 import { createContext, useContext, useEffect, useState } from 'react'
-import { getMe } from '../api/auth'
+import { getMe, logout as requestLogout } from '../api/auth'
 
 const AuthContext = createContext(null)
 
@@ -29,9 +29,15 @@ export function AuthProvider({ children }) {
   }
 
   // 로그아웃 — 토큰 삭제 + 유저 정보 초기화
-  const logoutAction = () => {
-    localStorage.removeItem('access_token')
-    setUser(null)
+  const logoutAction = async () => {
+    try {
+      await requestLogout()
+    } catch {
+      // 서버 세션 저장소가 없는 JWT 로그아웃은 클라이언트 토큰 삭제가 최종 처리다.
+    } finally {
+      localStorage.removeItem('access_token')
+      setUser(null)
+    }
   }
 
   // 프로필 사진 URL만 갱신

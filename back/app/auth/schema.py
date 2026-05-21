@@ -42,6 +42,11 @@ class UserMeResponse(BaseModel):
     photo_url: str | None = None
 
 
+class UserLogoutResponse(BaseModel):
+    status: int
+    message: str
+
+
 # 프로필 사진 업데이트 응답
 class UserPhotoResponse(BaseModel):
     status: int
