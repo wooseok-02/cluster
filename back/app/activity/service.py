@@ -228,8 +228,8 @@ async def upload_photos(db: Session, photos: list, current_user: User) -> dict:
                 "longitude": longitude,
                 "bytes": photo_bytes,
             })
-        except HTTPException:
-            # EXIF 없음 → 날짜·위치 None, 독립 그룹으로 처리
+        except Exception:
+            # EXIF 없음 또는 PIL 미지원 포맷(HEIC 등) → 날짜·위치 None, 독립 그룹으로 처리
             photos_data.append({
                 "photo_index": i,
                 "datetime": None,
