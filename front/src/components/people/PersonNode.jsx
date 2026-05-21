@@ -29,9 +29,6 @@ const STATUS_CONFIG = {
   },
 }
 
-const LINEAR_GROWTH_LIMIT = 50
-const GROWTH_BASE_COUNT = 12
-
 function normalizeStatus(status) {
   const normalized = String(status || 'normal').toLowerCase()
   if (normalized === 'best' || normalized === 'new' || normalized === 'old') return normalized
@@ -60,12 +57,7 @@ function getRelationColor(relation) {
 
 function getNodeSize(person, config) {
   const count = Math.max(0, getPersonCount(person))
-  const linearGrowth = Math.min(count, LINEAR_GROWTH_LIMIT) * (config.growth / GROWTH_BASE_COUNT)
-  const logGrowth = count > LINEAR_GROWTH_LIMIT
-    ? Math.log1p(count - LINEAR_GROWTH_LIMIT) * (config.growth / 4)
-    : 0
-  const growth = linearGrowth + logGrowth
-  return Math.round(config.node + growth)
+  return Math.round(config.node + count * config.growth)
 }
 
 function DefaultAvatar({ size }) {
