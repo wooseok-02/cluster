@@ -68,7 +68,7 @@ export default function ScheduleCreatePage() {
 
   // 이동 전 현재 폼 상태를 sessionStorage에 저장
   const saveDraft = () => {
-    sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ form, selectedPeopleIds, selectedPlaceId }))
+    sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ scheduleId: existingScheduleId, form, selectedPeopleIds, selectedPlaceId }))
   }
 
   const preservePendingPhotoState = () => {
