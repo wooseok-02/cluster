@@ -4,7 +4,7 @@ import OrbitRings from './OrbitRings'
 import PersonNode from './PersonNode'
 import ZoomControls from './ZoomControls'
 
-const MAP_SIZE = 1600
+const MAP_SIZE = 3200
 const MAP_CENTER = MAP_SIZE / 2
 const FIGMA_CENTER = 450
 const POSITION_SCALE = 1.24
@@ -64,8 +64,8 @@ function getPosition(index) {
 
 function getInitialView(peopleCount) {
   return {
-    x: peopleCount > 6 ? -605 : -565,
-    y: peopleCount > 6 ? -545 : -500,
+    x: peopleCount > 6 ? -1309 : -1333,
+    y: peopleCount > 6 ? -1249 : -1268,
     zoom: peopleCount > 6 ? 0.88 : 0.96,
   }
 }
@@ -753,7 +753,8 @@ export default function PeopleMap({
         onContextMenu={(event) => event.preventDefault()}
       >
         <div
-          className="relative h-[1600px] w-[1600px] select-none origin-top-left"
+          className="relative select-none origin-top-left"
+            style={{ width: MAP_SIZE, height: MAP_SIZE }}
           style={{
             transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})`,
             WebkitUserSelect: 'none',

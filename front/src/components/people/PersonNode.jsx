@@ -57,7 +57,7 @@ function getRelationColor(relation) {
 
 function getNodeSize(person, config) {
   const count = Math.max(0, getPersonCount(person))
-  return Math.round(config.node + count * config.growth)
+  return Math.round(config.node + count * 2)
 }
 
 function DefaultAvatar({ size }) {
