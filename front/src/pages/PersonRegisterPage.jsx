@@ -1,8 +1,10 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { registerPerson } from '../api/people'
 
 const DRAFT_KEY = 'scheduleFormDraft'
+const RELATION_SETTINGS_KEY = 'cluster.peopleMap.relations.v1'
+const DEFAULT_RELATIONS = ['가족', '친구', '직장', '기타']
 const inputClassName =
   'h-10 w-full rounded-[10px] border border-gray-300 bg-white !px-[10px] text-xs leading-4 text-text-main placeholder:text-gray-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/10'
 
@@ -11,6 +13,23 @@ const formatPhoneNumber = (value) => {
   if (digits.length <= 3) return digits
   if (digits.length <= 7) return `${digits.slice(0, 3)}-${digits.slice(3)}`
   return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`
+}
+
+function loadRelationNames() {
+  if (typeof window === 'undefined') return DEFAULT_RELATIONS
+
+  try {
+    const stored = JSON.parse(window.localStorage.getItem(RELATION_SETTINGS_KEY) || '[]')
+    const storedNames = Array.isArray(stored)
+      ? stored.map((relation) => String(relation.name || '').trim()).filter(Boolean)
+      : []
+
+    return [...DEFAULT_RELATIONS, ...storedNames].filter((name, index, list) => (
+      list.indexOf(name) === index
+    ))
+  } catch {
+    return DEFAULT_RELATIONS
+  }
 }
 
 export default function PersonRegisterPage() {
@@ -28,12 +47,19 @@ export default function PersonRegisterPage() {
   const [photoFile, setPhotoFile] = useState(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [relationPickerOpen, setRelationPickerOpen] = useState(false)
+  const relationNames = useMemo(loadRelationNames, [])
 
   const handleChange = (e) => {
     const value = e.target.name === 'phone'
       ? formatPhoneNumber(e.target.value)
       : e.target.value
     setForm({ ...form, [e.target.name]: value })
+  }
+
+  const handleRelationSelect = (relation) => {
+    setForm((current) => ({ ...current, relation }))
+    setRelationPickerOpen(false)
   }
 
   const handlePhotoChange = (e) => {
@@ -132,17 +158,41 @@ export default function PersonRegisterPage() {
             />
           </div>
 
-          <div className="!mt-[25px] flex flex-col gap-[10px]">
+          <div className="relative !mt-[25px] flex flex-col gap-[10px]">
             <label className="text-sm font-medium leading-4 text-black">관계</label>
             <input
               type="text"
               name="relation"
               value={form.relation}
-              onChange={handleChange}
+              onChange={(event) => {
+                handleChange(event)
+                setRelationPickerOpen(true)
+              }}
+              onFocus={() => setRelationPickerOpen(true)}
               placeholder="예) 가족, 친구, 직장동료 등"
               className={inputClassName}
               required
             />
+            {relationPickerOpen && relationNames.length > 0 && (
+              <div className="absolute left-0 right-0 top-[66px] z-20 rounded-[16px] border border-gray-border bg-white/95 !p-3 shadow-[0_14px_34px_rgba(17,24,39,0.12)] backdrop-blur">
+                <div className="flex flex-wrap gap-2">
+                  {relationNames.map((relation) => (
+                    <button
+                      key={relation}
+                      type="button"
+                      onClick={() => handleRelationSelect(relation)}
+                      className={`rounded-full border !px-3 !py-1.5 text-xs font-semibold ${
+                        form.relation === relation
+                          ? 'border-primary bg-primary-light text-primary'
+                          : 'border-gray-border bg-white text-text-sub'
+                      }`}
+                    >
+                      {relation}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="!mt-[25px] flex flex-col gap-[10px]">

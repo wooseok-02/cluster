@@ -2,7 +2,14 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { uploadPhotos } from '../api/activity'
-import { getPhotoUploadSession, setPendingFiles, setPendingPhotoUploadGroup, setPhotoUploadSession } from '../lib/pendingPhotos'
+import {
+  clearPendingFiles,
+  clearPendingPhotoUploadGroup,
+  getPhotoUploadSession,
+  setPendingFiles,
+  setPendingPhotoUploadGroup,
+  setPhotoUploadSession,
+} from '../lib/pendingPhotos'
 
 const DRAFT_KEY = 'scheduleFormDraft'
 const STATUS_META = {
@@ -148,6 +155,19 @@ export default function PhotoUploadPage() {
     setPhotoUploadSession(null)
   }
 
+  const handleReset = () => {
+    setFiles([])
+    setResults(null)
+    setSkippedCount(0)
+    setUploadError('')
+    setUploading(false)
+    setPhotoUploadSession(null)
+    clearPendingFiles()
+    clearPendingPhotoUploadGroup()
+    const input = document.getElementById('photo-upload-input')
+    if (input) input.value = ''
+  }
+
   const handleUpload = async () => {
     if (files.length === 0) {
       setUploadError('사진을 선택해주세요.')
@@ -213,6 +233,14 @@ export default function PhotoUploadPage() {
                   className="text-[10px] font-medium leading-4 text-primary underline"
                 >
                   파일 선택
+                </button>
+                <button
+                  type="button"
+                  onClick={handleReset}
+                  disabled={uploading || (files.length === 0 && !results && skippedCount === 0 && !uploadError)}
+                  className="text-[10px] font-medium leading-4 text-text-sub underline disabled:text-gray-300"
+                >
+                  초기화
                 </button>
                 <span className="text-xs text-text-sub">◆</span>
                 <span className="text-[10px] font-medium leading-4 text-text-main">{files.length}장의 사진</span>
@@ -340,6 +368,7 @@ function GroupCard({ group, files, onSyncSchedule, onCreateSchedule }) {
                       date: c.date || group.date,
                       start_time: c.start_time,
                       end_time: c.end_time,
+                      memo: c.memo,
                       place_id: c.place_id,
                       place_name: c.place_name,
                       people_ids: c.people_ids,
@@ -385,6 +414,7 @@ function GroupCard({ group, files, onSyncSchedule, onCreateSchedule }) {
           date: group.date,
           start_time: group.start_time || group.time,
           end_time: group.end_time,
+          memo: group.memo,
           place_id: group.place_id,
           place_name: group.place_name,
           people_ids: group.people_ids,

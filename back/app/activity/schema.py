@@ -64,8 +64,12 @@ class PhotoGroupResult(BaseModel):
     # match_type == "exact" 일 때
     schedule_id: Optional[int] = None
     schedule_title: Optional[str] = None
+    start_time: Optional[Time] = None
+    end_time: Optional[Time] = None
+    memo: Optional[str] = None
     place_id: Optional[int] = None
     place_name: Optional[str] = None
+    people_ids: Optional[list[int]] = None
     people: Optional[list] = None
     # match_type == "date_only" 일 때: 같은 날짜 Schedule 목록
     candidates: Optional[list] = []

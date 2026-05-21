@@ -704,8 +704,8 @@ export default function PeopleMap({
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_43%,rgba(97,63,231,0.13),transparent_34%),linear-gradient(180deg,#ffffff_0%,#f4f1ff_100%)]" />
       <div className="pointer-events-none absolute inset-0 opacity-45 [background-image:radial-gradient(circle,rgba(82,68,142,0.18)_1px,transparent_1px)] [background-size:30px_30px]" />
 
-      <div className="pointer-events-none absolute left-[30px] top-[18px] z-20 flex flex-col gap-1 rounded-[18px] border border-white/80 bg-white/62 !px-3 !py-2 shadow-[0_12px_28px_rgba(47,36,108,0.08)] backdrop-blur">
-        {relationSettings.slice(0, 5).map((item) => (
+      <div className="pointer-events-none absolute left-[30px] top-[18px] z-20 flex max-w-[210px] flex-wrap gap-1 rounded-[18px] border border-white/80 bg-white/62 !px-3 !py-2 shadow-[0_12px_28px_rgba(47,36,108,0.08)] backdrop-blur">
+        {relationSettings.map((item) => (
           <span key={item.name} className="flex items-center gap-1 text-[9px] leading-none text-text-sub">
             <span
               className="h-[7px] w-[7px] rounded-full"

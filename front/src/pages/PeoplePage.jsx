@@ -73,14 +73,14 @@ function RelationSettingsModal({ relations, onClose, onAddRelation, onColorChang
   }
 
   return (
-    <div className="absolute inset-0 z-50 flex items-end bg-black/20">
+    <div className="absolute inset-0 z-[60] flex items-end bg-black/20">
       <button
         type="button"
         className="absolute inset-0 cursor-default"
         aria-label="관계 설정 닫기"
         onClick={onClose}
       />
-      <section className="relative w-full rounded-t-[28px] border border-white/80 bg-white/88 !px-6 !pt-5 !pb-7 shadow-[0_-24px_60px_rgba(37,29,83,0.18)] backdrop-blur">
+      <section className="relative max-h-[calc(100vh-24px)] w-full rounded-t-[28px] border border-white/80 bg-white/88 !px-6 !pt-5 !pb-[108px] shadow-[0_-24px_60px_rgba(37,29,83,0.18)] backdrop-blur">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-black text-[#17112f]">관계 설정</h2>
@@ -111,7 +111,7 @@ function RelationSettingsModal({ relations, onClose, onAddRelation, onColorChang
           </button>
         </form>
 
-        <div className="!mt-5 max-h-[360px] overflow-y-auto !pr-1">
+        <div className="!mt-5 max-h-[calc(100vh-285px)] overflow-y-auto !pr-1">
           {relations.map((relation) => (
             <div key={relation.name} className="!mb-4 rounded-[20px] border border-white/80 bg-white/68 !p-4 shadow-[0_12px_30px_rgba(47,36,108,0.08)]">
               <div className="flex items-center justify-between gap-3">

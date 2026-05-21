@@ -173,8 +173,12 @@ def _match_group(db: Session, group: list[dict], current_user) -> dict:
                 "match_type": "exact",
                 "schedule_id": schedule.id,
                 "schedule_title": schedule.title,
+                "start_time": schedule.start_time.time(),
+                "end_time": schedule.end_time.time(),
+                "memo": schedule.memo,
                 "place_id": place.id,
                 "place_name": place.name,
+                "people_ids": [p.id for p in schedule.people],
                 "people": [{"id": p.id, "name": p.name} for p in schedule.people],
             }
 
@@ -188,8 +192,14 @@ def _match_group(db: Session, group: list[dict], current_user) -> dict:
         candidates.append({
             "schedule_id": s.id,
             "title": s.title,
+            "date": s.start_time.date(),
+            "start_time": s.start_time.time(),
+            "end_time": s.end_time.time(),
+            "memo": s.memo,
             "place_id": s.place_id,
             "place_name": place_name,
+            "people_ids": [person.id for person in s.people],
+            "people": [{"id": person.id, "name": person.name} for person in s.people],
         })
 
     return {**base, "match_type": "date_only", "candidates": candidates}
