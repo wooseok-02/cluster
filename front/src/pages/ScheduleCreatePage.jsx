@@ -1,7 +1,7 @@
 // 일정 생성 페이지 — 검색 필터로 People·Place 선택, 등록 후 복귀 시 폼 상태 복원
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { confirmSchedule, createSchedule, updateSchedule } from '../api/schedule'
+import { confirmSchedule, createSchedule } from '../api/schedule'
 import {
   clearPendingFiles,
   clearPendingPhotoUploadGroup,
@@ -15,6 +15,14 @@ import { getPeopleList } from '../api/people'
 import { getPlaceList } from '../api/place'
 
 const DRAFT_KEY = 'scheduleFormDraft'
+
+function getErrorMessage(err, fallback) {
+  const detail = err.response?.data?.detail
+  if (typeof detail === 'string') return detail
+  if (Array.isArray(detail)) return detail.map((item) => item.msg || item.message).filter(Boolean).join('\n') || fallback
+  if (detail && typeof detail === 'object') return detail.message || JSON.stringify(detail)
+  return fallback
+}
 
 export default function ScheduleCreatePage() {
   const navigate = useNavigate()
@@ -119,11 +127,12 @@ export default function ScheduleCreatePage() {
         people_ids: selectedPeopleIds,
       }
 
-      if (pendingFiles.length > 0 && existingScheduleId) {
-        await updateSchedule(existingScheduleId, {
-          ...schedulePayload,
-          place_id: selectedPlaceId ?? 0,
-        })
+      if (existingScheduleId) {
+        if (pendingFiles.length === 0) {
+          setError('사진 업로드 정보가 사라졌습니다. 사진 업로드 화면에서 다시 분석해주세요.')
+          return
+        }
+
         await confirmSchedule(existingScheduleId, form.memo, pendingFiles, pendingPhotoGroup?.matchedPeopleIds || [])
         clearPendingFiles()
         clearPendingPhotoUploadGroup()
@@ -161,8 +170,7 @@ export default function ScheduleCreatePage() {
       }
       navigate('/calendar')
     } catch (err) {
-      const detail = err.response?.data?.detail
-      setError(typeof detail === 'object' ? detail.message : detail || '일정 생성에 실패했습니다.')
+      setError(getErrorMessage(err, existingScheduleId ? '기존 일정 확정에 실패했습니다.' : '일정 생성에 실패했습니다.'))
     } finally {
       setLoading(false)
     }
