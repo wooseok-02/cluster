@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import OrbitRings from './OrbitRings'
 import PersonNode from './PersonNode'
@@ -62,11 +62,16 @@ function getPosition(index) {
   }
 }
 
-function getInitialView(peopleCount) {
+function getInitialZoom(peopleCount) {
+  return peopleCount > 6 ? 0.88 : 0.96
+}
+
+function getCenteredView(zoom, viewportWidth, viewportHeight) {
+  const bottomSafeArea = 88
   return {
-    x: peopleCount > 6 ? -1309 : -1333,
-    y: peopleCount > 6 ? -1249 : -1268,
-    zoom: peopleCount > 6 ? 0.88 : 0.96,
+    zoom,
+    x: viewportWidth / 2 - MAP_CENTER * zoom,
+    y: (viewportHeight - bottomSafeArea) / 2 - MAP_CENTER * zoom,
   }
 }
 
@@ -261,9 +266,8 @@ export default function PeopleMap({
   const nodeLongPressTimerRef = useRef(null)
   const nodeClickTimerRef = useRef(null)
   const suppressClickRef = useRef(false)
-  const initialView = useMemo(() => getInitialView(people.length), [people.length])
   const storedLayout = useMemo(() => loadStoredLayout(), [])
-  const [view, setView] = useState(initialView)
+  const [view, setView] = useState(() => ({ zoom: getInitialZoom(people.length), x: 0, y: 0 }))
   const [customPositions, setCustomPositions] = useState(storedLayout.positions)
   const [connections, setConnections] = useState(storedLayout.connections)
   const [connectionSourceId, setConnectionSourceId] = useState(null)
@@ -386,14 +390,20 @@ export default function PeopleMap({
     saveStoredLayout(customPositions, connections)
   }, [connections, customPositions])
 
-  useEffect(() => {
-    const handleResize = () => {
-      setView((current) => constrainView(current))
-    }
+  const centerOnUser = () => {
+    if (!viewportRef.current) return
+    const rect = viewportRef.current.getBoundingClientRect()
+    const zoom = getInitialZoom(people.length)
+    setView(constrainView(getCenteredView(zoom, rect.width, rect.height)))
+  }
 
-    handleResize()
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
+  useLayoutEffect(() => {
+    centerOnUser()
+  }, [])
+
+  useEffect(() => {
+    window.addEventListener('resize', () => setView((current) => constrainView(current)))
+    return () => window.removeEventListener('resize', () => setView((current) => constrainView(current)))
   }, [])
 
   const setZoom = (nextZoom, origin = null) => {
@@ -566,7 +576,7 @@ export default function PeopleMap({
     setZoom(view.zoom + direction * ZOOM_STEP, { x: event.clientX, y: event.clientY })
   }
 
-  const handleReset = () => setView(constrainView(initialView))
+  const handleReset = () => centerOnUser()
 
   const getMapPointFromPointer = (event) => {
     const rect = viewportRef.current.getBoundingClientRect()
