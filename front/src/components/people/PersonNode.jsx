@@ -38,6 +38,7 @@ const STATUS_CONFIG = {
 }
 
 const LINEAR_GROWTH_LIMIT = 50
+const GROWTH_BASE_COUNT = 12
 
 function normalizeStatus(status) {
   const normalized = String(status || 'normal').toLowerCase()
@@ -51,7 +52,7 @@ function getPersonCount(person) {
 
 function getNodeSize(person, config) {
   const count = Math.max(0, getPersonCount(person))
-  const linearGrowth = Math.min(count, LINEAR_GROWTH_LIMIT) * (config.growth / LINEAR_GROWTH_LIMIT)
+  const linearGrowth = Math.min(count, LINEAR_GROWTH_LIMIT) * (config.growth / GROWTH_BASE_COUNT)
   const logGrowth = count > LINEAR_GROWTH_LIMIT
     ? Math.log1p(count - LINEAR_GROWTH_LIMIT) * (config.growth / 4)
     : 0
