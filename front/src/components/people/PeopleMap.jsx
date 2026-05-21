@@ -33,11 +33,11 @@ const FIGMA_POSITIONS = [
   { x: 330, y: 350 },
 ]
 
-const RELATION_LEGEND = [
-  { label: '가족', className: 'bg-relation-family' },
-  { label: '친구', className: 'bg-relation-friend' },
-  { label: '직장', className: 'bg-relation-work' },
-  { label: '기타', className: 'bg-relation-etc' },
+const DEFAULT_RELATION_SETTINGS = [
+  { name: '가족', color: '#FF8BB3' },
+  { name: '친구', color: '#5A8DEE' },
+  { name: '직장', color: '#37B778' },
+  { name: '기타', color: '#9C8BFF' },
 ]
 
 function clamp(value, min, max) {
@@ -65,7 +65,7 @@ function getPosition(index) {
 function getInitialView(peopleCount) {
   return {
     x: peopleCount > 6 ? -605 : -565,
-    y: peopleCount > 6 ? -470 : -430,
+    y: peopleCount > 6 ? -545 : -500,
     zoom: peopleCount > 6 ? 0.88 : 0.96,
   }
 }
@@ -74,8 +74,33 @@ function getPersonId(person) {
   return String(person.id)
 }
 
+function getRelationName(person) {
+  return String(person.relation || '기타').trim() || '기타'
+}
+
+function getRelationMeta(relationName, relationSettings = DEFAULT_RELATION_SETTINGS) {
+  return relationSettings.find((relation) => relation.name === relationName) || {
+    name: relationName,
+    color: '#9C8BFF',
+  }
+}
+
 function getConnectionKey(fromId, toId) {
   return `${fromId}->${toId}`
+}
+
+function getConnectionPath(from, to) {
+  const centerPull = { x: MAP_CENTER, y: MAP_CENTER }
+  const controlA = {
+    x: from.x + (centerPull.x - from.x) * 0.28,
+    y: from.y + (centerPull.y - from.y) * 0.28,
+  }
+  const controlB = {
+    x: to.x + (centerPull.x - to.x) * 0.28,
+    y: to.y + (centerPull.y - to.y) * 0.28,
+  }
+
+  return `M ${from.x} ${from.y} C ${controlA.x} ${controlA.y}, ${controlB.x} ${controlB.y}, ${to.x} ${to.y}`
 }
 
 function getRectFromPoints(start, end) {
@@ -95,6 +120,39 @@ function isPointInRect(point, rect) {
     point.y >= rect.y &&
     point.y <= rect.y + rect.height
   )
+}
+
+function getClusterFields(positionedPeople, relationSettings) {
+  const groups = positionedPeople.reduce((acc, person) => {
+    const relationName = getRelationName(person)
+    if (!acc[relationName]) acc[relationName] = []
+    acc[relationName].push(person.mapPosition)
+    return acc
+  }, {})
+
+  return Object.entries(groups)
+    .filter(([, positions]) => positions.length >= 2)
+    .map(([relationName, positions]) => {
+      const relation = getRelationMeta(relationName, relationSettings)
+      const xs = positions.map((position) => position.x)
+      const ys = positions.map((position) => position.y)
+      const minX = Math.min(...xs)
+      const maxX = Math.max(...xs)
+      const minY = Math.min(...ys)
+      const maxY = Math.max(...ys)
+      const width = Math.max(230, maxX - minX + 210)
+      const height = Math.max(180, maxY - minY + 180)
+
+      return {
+        key: relationName,
+        label: relation.name,
+        color: relation.color,
+        x: minX + (maxX - minX) / 2,
+        y: minY + (maxY - minY) / 2,
+        width,
+        height,
+      }
+    })
 }
 
 function loadStoredLayout() {
@@ -146,11 +204,19 @@ function CurrentUserNode({ user, myPhotoUrl, onPhotoClick, uploading, suppressCl
       type="button"
       onClick={handleClick}
       disabled={uploading}
-      className="absolute flex -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-primary bg-white"
-      style={{ left: MAP_CENTER, top: MAP_CENTER, width: 82, height: 82 }}
+      className="absolute flex -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white"
+      style={{
+        left: MAP_CENTER,
+        top: MAP_CENTER,
+        width: 96,
+        height: 96,
+        boxShadow: '0 0 0 1px rgba(97, 63, 231, 0.24), 0 0 46px rgba(97, 63, 231, 0.24), 0 18px 42px rgba(47, 36, 108, 0.16)',
+      }}
       aria-label="내 프로필 사진 변경"
     >
-      <span className="relative block h-[70px] w-[70px] overflow-hidden rounded-full bg-primary-light">
+      <span className="pointer-events-none absolute inset-[-18px] rounded-full border border-primary/20" />
+      <span className="pointer-events-none absolute inset-[-32px] rounded-full border border-dashed border-primary/15" />
+      <span className="relative block h-[78px] w-[78px] overflow-hidden rounded-full bg-primary-light">
         {myPhotoUrl ? (
           <img src={myPhotoUrl} alt={label} className="h-full w-full object-cover" draggable="false" />
         ) : (
@@ -166,7 +232,14 @@ function CurrentUserNode({ user, myPhotoUrl, onPhotoClick, uploading, suppressCl
   )
 }
 
-export default function PeopleMap({ people, currentUser, myPhotoUrl, onPhotoClick, uploading }) {
+export default function PeopleMap({
+  people,
+  currentUser,
+  myPhotoUrl,
+  onPhotoClick,
+  uploading,
+  relationSettings = DEFAULT_RELATION_SETTINGS,
+}) {
   const navigate = useNavigate()
   const viewportRef = useRef(null)
   const pointersRef = useRef(new Map())
@@ -201,6 +274,7 @@ export default function PeopleMap({ people, currentUser, myPhotoUrl, onPhotoClic
 
     const rect = viewportRef.current.getBoundingClientRect()
     const scaledSize = MAP_SIZE * nextView.zoom
+    const bottomSafeArea = 88
     const getAxisValue = (viewportSize, currentValue) => {
       if (scaledSize <= viewportSize) return (viewportSize - scaledSize) / 2
       const padding = viewportSize * 0.75
@@ -210,7 +284,7 @@ export default function PeopleMap({ people, currentUser, myPhotoUrl, onPhotoClic
     return {
       ...nextView,
       x: getAxisValue(rect.width, nextView.x),
-      y: getAxisValue(rect.height, nextView.y),
+      y: getAxisValue(rect.height - bottomSafeArea, nextView.y),
     }
   }
 
@@ -220,6 +294,18 @@ export default function PeopleMap({ people, currentUser, myPhotoUrl, onPhotoClic
       return { ...person, mapPosition: customPositions[id] || getPosition(index) }
     }),
     [customPositions, people],
+  )
+
+  const relationMetaByName = useMemo(() => {
+    return relationSettings.reduce((acc, relation) => {
+      acc[relation.name] = relation
+      return acc
+    }, {})
+  }, [relationSettings])
+
+  const clusterFields = useMemo(
+    () => getClusterFields(positionedPeople, relationSettings),
+    [positionedPeople, relationSettings],
   )
 
   const positionById = useMemo(() => {
@@ -611,15 +697,24 @@ export default function PeopleMap({ people, currentUser, myPhotoUrl, onPhotoClic
 
   return (
     <section
-      className="relative min-h-0 flex-1 select-none overflow-hidden bg-white"
+      className="relative min-h-0 flex-1 select-none overflow-hidden bg-[#fbfaff]"
       style={{ WebkitUserSelect: 'none', WebkitTouchCallout: 'none' }}
       aria-label="People map"
     >
-      <div className="pointer-events-none absolute left-[30px] top-[18px] z-20 flex flex-col gap-1">
-        {RELATION_LEGEND.map((item) => (
-          <span key={item.label} className="flex items-center gap-1 text-[9px] leading-none text-text-sub">
-            <span className={`h-[7px] w-[7px] rounded-full ${item.className}`} />
-            {item.label}
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_43%,rgba(97,63,231,0.13),transparent_34%),linear-gradient(180deg,#ffffff_0%,#f4f1ff_100%)]" />
+      <div className="pointer-events-none absolute inset-0 opacity-45 [background-image:radial-gradient(circle,rgba(82,68,142,0.18)_1px,transparent_1px)] [background-size:30px_30px]" />
+
+      <div className="pointer-events-none absolute left-[30px] top-[18px] z-20 flex flex-col gap-1 rounded-[18px] border border-white/80 bg-white/62 !px-3 !py-2 shadow-[0_12px_28px_rgba(47,36,108,0.08)] backdrop-blur">
+        {relationSettings.slice(0, 5).map((item) => (
+          <span key={item.name} className="flex items-center gap-1 text-[9px] leading-none text-text-sub">
+            <span
+              className="h-[7px] w-[7px] rounded-full"
+              style={{
+                backgroundColor: item.color,
+                boxShadow: `0 0 10px ${item.color}77`,
+              }}
+            />
+            {item.name}
           </span>
         ))}
       </div>
@@ -656,9 +751,26 @@ export default function PeopleMap({ people, currentUser, myPhotoUrl, onPhotoClic
           }}
         >
           <OrbitRings size={MAP_SIZE} center={MAP_CENTER} />
+          {clusterFields.map((field) => (
+            <div
+              key={field.key}
+              className="people-cluster-field pointer-events-none absolute"
+              style={{
+                left: field.x,
+                top: field.y,
+                width: field.width,
+                height: field.height,
+                '--cluster-color': field.color,
+              }}
+            >
+              <span className="people-cluster-label">
+                {field.label}
+              </span>
+            </div>
+          ))}
           {selectionRect && (
             <div
-              className="pointer-events-none absolute rounded-[16px] border border-primary/45 bg-primary/10"
+              className="pointer-events-none absolute rounded-[22px] border border-primary/35 bg-white/24 shadow-[0_0_36px_rgba(97,63,231,0.18)] backdrop-blur-[2px]"
               style={{
                 left: selectionRect.x,
                 top: selectionRect.y,
@@ -669,26 +781,26 @@ export default function PeopleMap({ people, currentUser, myPhotoUrl, onPhotoClic
           )}
           <svg className="pointer-events-none absolute inset-0 h-full w-full" viewBox={`0 0 ${MAP_SIZE} ${MAP_SIZE}`} aria-hidden="true">
             <defs>
-              <marker id="people-connection-arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="strokeWidth">
-                <path d="M0 0L10 5L0 10Z" className="fill-primary/35" />
-              </marker>
+              <linearGradient id="people-connection-gradient" x1="0" x2="1" y1="0" y2="1">
+                <stop offset="0%" stopColor="#5A8DEE" stopOpacity="0.16" />
+                <stop offset="52%" stopColor="#613FE7" stopOpacity="0.72" />
+                <stop offset="100%" stopColor="#FF8BB3" stopOpacity="0.16" />
+              </linearGradient>
             </defs>
             {connections.map((connection) => {
               const from = positionById[connection.fromId]
               const to = positionById[connection.toId]
               if (!from || !to) return null
               return (
-                <line
+                <path
                   key={getConnectionKey(connection.fromId, connection.toId)}
-                  x1={from.x}
-                  y1={from.y}
-                  x2={to.x}
-                  y2={to.y}
-                  className="stroke-primary/35"
+                  d={getConnectionPath(from, to)}
+                  className="people-connection-line"
+                  fill="none"
+                  stroke="url(#people-connection-gradient)"
                   strokeWidth="1.5"
                   strokeLinecap="round"
-                  strokeDasharray="2 5"
-                  markerEnd="url(#people-connection-arrow)"
+                  vectorEffect="non-scaling-stroke"
                 />
               )
             })}
@@ -715,6 +827,7 @@ export default function PeopleMap({ people, currentUser, myPhotoUrl, onPhotoClic
               isConnecting={connectionSourceId === getPersonId(person)}
               isDragging={draggingPersonId === getPersonId(person)}
               isSelected={selectedPersonIds.includes(getPersonId(person))}
+              relationColor={relationMetaByName[getRelationName(person)]?.color}
             />
           ))}
         </div>

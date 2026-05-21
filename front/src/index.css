@@ -52,3 +52,66 @@ body {
   position: relative;
   overflow-x: hidden;
 }
+
+.people-connection-line {
+  filter: drop-shadow(0 0 4px rgba(97, 63, 231, 0.38));
+}
+
+.people-cluster-field {
+  border-radius: 999px;
+  transform: translate(-50%, -50%) rotate(-8deg) skewX(-5deg);
+  background:
+    radial-gradient(ellipse at 50% 48%, color-mix(in srgb, var(--cluster-color) 20%, transparent) 0%, color-mix(in srgb, var(--cluster-color) 8%, transparent) 44%, transparent 70%),
+    linear-gradient(135deg, color-mix(in srgb, var(--cluster-color) 10%, transparent), transparent 56%);
+  border: 1px solid color-mix(in srgb, var(--cluster-color) 34%, transparent);
+  box-shadow:
+    inset 0 0 42px color-mix(in srgb, var(--cluster-color) 12%, transparent),
+    0 24px 68px rgba(50, 38, 107, 0.10);
+}
+
+.people-cluster-field::before,
+.people-cluster-field::after {
+  content: "";
+  position: absolute;
+  inset: 13%;
+  border-radius: inherit;
+  border: 1px dashed color-mix(in srgb, var(--cluster-color) 28%, transparent);
+}
+
+.people-cluster-field::after {
+  inset: 29%;
+  border-style: solid;
+  opacity: 0.42;
+}
+
+.people-cluster-label {
+  position: absolute;
+  left: 13%;
+  top: 14%;
+  transform: skewX(5deg) rotate(8deg);
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.54);
+  padding: 3px 9px;
+  color: color-mix(in srgb, var(--cluster-color) 70%, #241d46);
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: 0 10px 24px rgba(47, 36, 108, 0.10);
+  backdrop-filter: blur(8px);
+}
+
+.people-status-orb {
+  width: 11px;
+  height: 11px;
+}
+
+.people-node-orbit {
+  animation: people-node-orbit-spin 8s linear infinite;
+}
+
+@keyframes people-node-orbit-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
