@@ -456,12 +456,15 @@ def confirm_schedule(
     # 사진이 함께 전달된 경우 cloudinary에 저장하고 Photo 레코드 생성
     if photo_bytes_list:
         for photo_bytes in photo_bytes_list:
-            upload_result = upload_authenticated_photo(
-                io.BytesIO(photo_bytes),
-                folder="cluster/activity"
-            )
-            photo_url = upload_result["public_id"]
-            db.add(Photo(log_id=activity_log.log_id, photo_url=photo_url))
+            try:
+                upload_result = upload_authenticated_photo(
+                    io.BytesIO(photo_bytes),
+                    folder="cluster/activity"
+                )
+                photo_url = upload_result["public_id"]
+                db.add(Photo(log_id=activity_log.log_id, photo_url=photo_url))
+            except Exception as e:
+                print(f"[confirm_schedule] 사진 업로드 실패 (건너뜀): {e}")
         db.commit()
         db.refresh(activity_log)
 
