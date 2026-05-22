@@ -23,6 +23,9 @@ import io
 from utils.cloudinary import get_signed_photo_url, upload_authenticated_photo
 
 
+_REFRESHED_PEOPLE_EMBEDDINGS = set()
+
+
 def serialize_activity_log(activity_log: ActivityLog) -> dict:
     return {
         "log_id": activity_log.log_id,
@@ -55,11 +58,14 @@ async def _get_people_candidates(db: Session, current_user: User) -> list[dict]:
 
     async with httpx.AsyncClient(timeout=60.0) as client:
         for person in people_list:
-            if _is_valid_embedding(person.embedding):
+            should_refresh_embedding = person.photo_url and person.id not in _REFRESHED_PEOPLE_EMBEDDINGS
+            if _is_valid_embedding(person.embedding) and not should_refresh_embedding:
                 candidates.append({"people_id": person.id, "embedding": person.embedding})
                 continue
 
             if not person.photo_url:
+                if _is_valid_embedding(person.embedding):
+                    candidates.append({"people_id": person.id, "embedding": person.embedding})
                 continue
 
             try:
@@ -75,14 +81,19 @@ async def _get_people_candidates(db: Session, current_user: User) -> list[dict]:
                 embedding = embed_response.json().get("embedding")
             except Exception as e:
                 print(f"[people_candidates] People {person.id} embedding 보정 실패: {e}")
+                if _is_valid_embedding(person.embedding):
+                    candidates.append({"people_id": person.id, "embedding": person.embedding})
                 continue
 
             if not _is_valid_embedding(embedding):
                 print(f"[people_candidates] People {person.id} embedding 보정 결과 없음")
+                if _is_valid_embedding(person.embedding):
+                    candidates.append({"people_id": person.id, "embedding": person.embedding})
                 continue
 
             person.embedding = embedding
             changed = True
+            _REFRESHED_PEOPLE_EMBEDDINGS.add(person.id)
             candidates.append({"people_id": person.id, "embedding": embedding})
 
     if changed:

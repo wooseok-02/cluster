@@ -255,7 +255,7 @@ export default function PhotoUploadPage() {
           {previewUrls.length > 0 && (
             <div className="!mt-3 grid grid-cols-4 gap-2">
               {previewUrls.slice(0, 4).map((url) => (
-                <img key={url} src={url} alt="선택한 사진" className="h-[45px] w-full rounded-[5px] object-cover" />
+                <img key={url} src={url} alt="선택한 사진" className="h-[60px] w-full rounded-[5px] bg-gray-100 object-contain" />
               ))}
             </div>
           )}
@@ -402,7 +402,7 @@ function GroupCard({ group, files, onSyncSchedule, onCreateSchedule }) {
           )}
 
           {previewUrl && (
-            <img src={previewUrl} alt="분석된 사진" className="!mt-[10px] h-[45px] w-[60px] rounded-[5px] object-cover" />
+            <img src={previewUrl} alt="분석된 사진" className="!mt-[10px] h-[72px] w-[96px] rounded-[5px] bg-gray-100 object-contain" />
           )}
         </div>
       </div>
