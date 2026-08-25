@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, ConfigDict, EmailStr
 from typing import Optional
 from datetime import date
 class PersonCreate(BaseModel):
@@ -24,12 +24,11 @@ class PersonData(BaseModel) :
 
 
 class PersonRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     status: int
     message: str
     data: PersonData
-
-    class Config:
-        from_attributes = True
 
 class PersonListRead(BaseModel):
     status: int
