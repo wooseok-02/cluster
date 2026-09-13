@@ -2,6 +2,8 @@ from datetime import datetime
 
 from utils.exif import _extract_info_from_exif
 
+# 임의 사진 만들기
+
 def test_extract_info_from_exif(make_exif_photo):
     taken_at = datetime(2026,8,25,14,30)
     latitude = 37.0

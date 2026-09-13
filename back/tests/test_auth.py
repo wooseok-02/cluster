@@ -1,3 +1,5 @@
+# 회원가입,로그인,토큰 발급 fixfure를 위한 것
+
 def test_register_login_and_get_me(client, clean_database):
     user_data = {
         "email": "auth-test@example.com",

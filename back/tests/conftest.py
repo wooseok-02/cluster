@@ -15,7 +15,7 @@ TEST_DATABASE_URL = (
 # FastAPI 앱을 import하기 전에 테스트 DB를 지정한다.
 os.environ["DATABASE_URL"] = TEST_DATABASE_URL
 
-from config.database import Base, engine  # noqa: E402
+from config.database import Base, engine, SessionLocal  # noqa: E402
 from main import app  # noqa: E402
 
 def clear_database():
@@ -94,3 +94,12 @@ def make_exif_photo() :
         return buffer.getvalue()
 
     return make_photo
+
+@pytest.fixture
+def db_session(clean_database) :
+    db = SessionLocal()
+
+    try :
+        yield db
+    finally:
+        db.close()

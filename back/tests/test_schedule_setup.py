@@ -1,3 +1,7 @@
+from datetime import date, timedelta
+
+# 사람,장소,일정 생성하는 테스트 코드
+
 def test_create_person_place_and_schedule(client, auth_headers):
     # 1. 사람 등록
     person_response = client.post(
